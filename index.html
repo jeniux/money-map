@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Follow the Money — Interactive Flow Map (2024–2026)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+  :root{
+    --bg:#0b1020; --panel:#121a31; --panel2:#0f1730; --ink:#e8edf7; --muted:#93a0bd;
+    --line:#26324f; --accent:#6ea8fe;
+    --source:#64748b; --government:#2563eb; --defense:#6366f1; --health:#10b981;
+    --tech:#a855f7; --finance:#f59e0b; --harm:#ef4444;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  #app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+  header{padding:14px 20px 10px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0e1530,#0b1020)}
+  header h1{margin:0;font-size:18px;letter-spacing:.2px}
+  header p{margin:4px 0 0;color:var(--muted);font-size:12.5px;max-width:900px;line-height:1.5}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 20px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  .btn{background:#1a2542;border:1px solid var(--line);color:var(--ink);padding:6px 11px;border-radius:8px;font-size:12px;cursor:pointer;transition:.15s}
+  .btn:hover{background:#23315a}
+  .btn.active{background:var(--accent);color:#06122c;border-color:var(--accent);font-weight:600}
+  .chip{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .sep{width:1px;height:22px;background:var(--line);margin:0 4px}
+  .main{flex:1;display:flex;min-height:0}
+  #graph{flex:1;position:relative}
+  svg{width:100%;height:100%;display:block;cursor:grab}
+  svg:active{cursor:grabbing}
+  .node circle{cursor:pointer;stroke-width:1.5px}
+  .node text{pointer-events:none;font-size:11px;fill:var(--ink);paint-order:stroke;stroke:#0b1020;stroke-width:3px;stroke-linejoin:round}
+  .node.dim{opacity:.12}
+  .link.dim{opacity:.05}
+  .node .ring{fill:none;stroke:var(--harm);stroke-width:2px;stroke-dasharray:3 3}
+  #side{width:340px;border-left:1px solid var(--line);background:var(--panel);padding:16px 16px 24px;overflow-y:auto}
+  #side h2{font-size:15px;margin:0 0 2px}
+  #side .cat{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px}
+  .figure{font-size:26px;font-weight:700;margin:2px 0}
+  .flag{display:inline-block;font-size:10.5px;padding:2px 8px;border-radius:999px;margin:2px 4px 8px 0;border:1px solid var(--line)}
+  .flag.reported{background:#06381f;color:#5ee7a0;border-color:#0c5e36}
+  .flag.estimate{background:#3a2c06;color:#facc6b;border-color:#5e4a0c}
+  .flag.guidance{background:#2a2147;color:#c4b5fd;border-color:#473a73}
+  .flag.ceiling{background:#3a1414;color:#fca5a5;border-color:#5e2020}
+  .desc{font-size:13px;line-height:1.55;color:#cdd7ec;margin:6px 0 12px}
+  .harm{background:#2a1212;border:1px solid #5e2020;border-radius:8px;padding:9px 11px;font-size:12.5px;color:#fca5a5;line-height:1.5;margin:8px 0}
+  .harm b{color:#fecaca}
+  .flows{margin-top:12px}
+  .flows h3{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:14px 0 6px}
+  .flowrow{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:5px 0;border-bottom:1px dashed var(--line);cursor:pointer}
+  .flowrow:hover{color:var(--accent)}
+  .flowrow .amt{color:var(--muted);white-space:nowrap}
+  .src{font-size:11.5px;margin-top:14px}
+  .src a{color:var(--accent);text-decoration:none}
+  .src a:hover{text-decoration:underline}
+  .hint{color:var(--muted);font-size:12.5px;line-height:1.6}
+  .legend{position:absolute;left:14px;bottom:14px;background:rgba(15,23,48,.85);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:11.5px;backdrop-filter:blur(4px)}
+  .legend .row{display:flex;align-items:center;gap:7px;margin:3px 0}
+  .tooltip{position:absolute;pointer-events:none;background:#0a122b;border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12px;max-width:240px;opacity:0;transition:.1s;z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+  footer{padding:8px 20px;border-top:1px solid var(--line);color:var(--muted);font-size:11px;background:var(--panel2)}
+  .search{background:#0e1730;border:1px solid var(--line);color:var(--ink);padding:6px 10px;border-radius:8px;font-size:12px;width:150px}
+  @media(max-width:820px){#side{display:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Follow the Money — the largest rivers of capital, 2024–2026</h1>
+    <p>Where the biggest money actually flows: from its <b>sources</b> (taxpayers, consumers, investors) through government and the major sectors, out to the companies that capture it — and onward to <em>their</em> suppliers and owners. Click any node to expand its flows and read the figure, the source, and how solid the number is. Toggle the <b style="color:var(--harm)">harm overlay</b> to highlight where the money is linked to documented public harm. <b>Best-effort with flags</b> — verified figures are marked, estimates and contract ceilings are labelled as such.</p>
+  </header>
+
+  <div class="toolbar">
+    <span style="font-size:12px;color:var(--muted)">Filter:</span>
+    <button class="btn filter active" data-cat="all">All</button>
+    <button class="btn filter" data-cat="government"><span class="chip"><span class="dot" style="background:var(--government)"></span>Government</span></button>
+    <button class="btn filter" data-cat="defense"><span class="chip"><span class="dot" style="background:var(--defense)"></span>Defense/Space</span></button>
+    <button class="btn filter" data-cat="health"><span class="chip"><span class="dot" style="background:var(--health)"></span>Healthcare</span></button>
+    <button class="btn filter" data-cat="tech"><span class="chip"><span class="dot" style="background:var(--tech)"></span>Tech/AI</span></button>
+    <button class="btn filter" data-cat="finance"><span class="chip"><span class="dot" style="background:var(--finance)"></span>Finance</span></button>
+    <button class="btn filter" data-cat="harm"><span class="chip"><span class="dot" style="background:var(--harm)"></span>Harm economy</span></button>
+    <button class="btn filter" data-cat="energy"><span class="chip"><span class="dot" style="background:#0ea5e9"></span>Energy</span></button>
+    <button class="btn filter" data-cat="agriculture"><span class="chip"><span class="dot" style="background:#84cc16"></span>Agriculture</span></button>
+    <button class="btn filter" data-cat="people"><span class="chip"><span class="dot" style="background:#ec4899"></span>People</span></button>
+    <button class="btn filter" data-cat="pac"><span class="chip"><span class="dot" style="background:#9ca3af"></span>PACs</span></button>
+    <span class="sep"></span>
+    <button class="btn" id="harmToggle">⚠ Harm overlay</button>
+    <button class="btn" id="leanToggle">⚖ Political lean</button>
+    <button class="btn" id="expandAll">Expand all</button>
+    <button class="btn" id="collapseAll">Collapse</button>
+    <button class="btn" id="resetZoom">Reset view</button>
+    <span class="sep"></span>
+    <input class="search" id="search" placeholder="Find a node…">
+  </div>
+
+  <div class="main">
+    <div id="graph">
+      <div class="legend">
+        <div class="row"><span class="dot" style="background:var(--source)"></span> Source of money</div>
+        <div class="row"><span style="width:18px;height:0;border-top:2px solid #6ea8fe;display:inline-block"></span> Money flow (→)</div>
+        <div class="row"><span style="width:18px;height:0;border-top:2px dashed #f59e0b;display:inline-block"></span> Ownership stake</div>
+        <div class="row"><span style="width:18px;height:0;border-top:2px dashed #ec4899;display:inline-block"></span> Person controls / runs</div>
+        <div class="row"><span class="ringlegend" style="width:11px;height:11px;border-radius:50%;border:2px dashed var(--harm);display:inline-block"></span> Linked to documented harm</div>
+        <div class="row" style="color:var(--muted);margin-top:5px">Circle size ∝ dollars · click to expand</div>
+        <div style="border-top:1px solid var(--line);margin:7px 0 5px;padding-top:5px;color:var(--muted)">Political lean (⚖ overlay):</div>
+        <div class="row"><span class="dot" style="background:#7f1d1d"></span> MAGA / Trump-aligned</div>
+        <div class="row"><span class="dot" style="background:#dc2626"></span> Republican</div>
+        <div class="row"><span class="dot" style="background:#d97706"></span> Libertarian</div>
+        <div class="row"><span class="dot" style="background:#9ca3af"></span> Bipartisan / mixed</div>
+        <div class="row"><span class="dot" style="background:#2563eb"></span> Democratic</div>
+        <div class="row"><span class="dot" style="background:#475569"></span> Not a major donor / unclear</div>
+      </div>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+    <div id="side">
+      <div class="hint" id="hint">
+        <b>Start here.</b> This is a directed map of capital. The four grey nodes on the left are where money originates. Everything flows rightward.<br><br>
+        <b>Click</b> a sector (Defense, Healthcare, Tech/AI, Wall Street, Harm Economy) to reveal the companies inside it. Click a company to see its money in, money out, and the source for every figure.<br><br>
+        Try the example you raised: find <b>Federal Government → SpaceX</b>, then expand SpaceX to see where those tax dollars go next.<br><br>
+        <span style="color:var(--muted)">Scroll to zoom · drag the background to pan · drag a node to reposition.</span>
+      </div>
+      <div id="detail" style="display:none"></div>
+    </div>
+  </div>
+  <footer id="foot">Figures are 2024 reported / 2025 actual / 2026 guidance unless noted. Political donations are public FEC/OpenSecrets records (2024 cycle); a person's "lean" is categorized from where the bulk of their money went — many give across parties, and non-donors are marked as such. Dollars on flows are headline magnitudes, not audited transfers. Sources cited per node. Built June 2026.</footer>
+</div>
+
+<script>
+// ---------- DATA ----------
+// flag: reported | estimate | guidance | ceiling
+// val in $billions. parent: id of node that reveals this one (level>0). roots have no parent.
+const NODES = [
+  // SOURCES
+  {id:'taxpayers',label:'Taxpayers',cat:'source',val:5235,flag:'reported',
+    desc:'Federal receipts FY2025: individual income tax $2.66T, payroll tax $1.75T, corporate tax $0.45T.',
+    src:'https://www.cbo.gov/publication/61307',srcName:'CBO Monthly Budget Review, FY2025 (final)'},
+  {id:'consumers',label:'Consumers / Households',cat:'source',val:21980,flag:'reported',
+    desc:'US personal consumption (PCE), ~$22.0T annualized (Apr 2026) — roughly two-thirds of GDP. Households also carry $18.6T of debt.',
+    src:'https://fred.stlouisfed.org/series/PCE',srcName:'BEA / FRED — Personal Consumption Expenditures'},
+  {id:'investors',label:'Investors & Savers',cat:'source',val:null,flag:'reported',
+    desc:'Pensions, 401(k)s, and savings funneled through asset managers and banks into public companies and government bonds.',
+    src:'https://www.mckinsey.com/industries/private-capital/our-insights/global-private-markets-report-2024',srcName:'McKinsey Global Private Markets Report'},
+  {id:'bondholders',label:'Bondholders',cat:'source',val:1028,flag:'reported',harm:true,
+    harmNote:'<b>The quiet transfer.</b> Net interest on the federal debt topped <b>$1.03T</b> in FY2025 — the first year ever above $1 trillion, now larger than the entire military budget. It flows from taxpayers to whoever holds the $31.6T of public debt: foreign governments, the Fed, banks, and asset managers like BlackRock.',
+    desc:'Net interest paid on the national debt, FY2025. Recipients of the largest single new "river" in the federal budget.',
+    src:'https://fiscaldata.treasury.gov/datasets/debt-to-the-penny/',srcName:'US Treasury — Debt to the Penny'},
+
+  // GOVERNMENT
+  {id:'gov',label:'Federal Government',cat:'government',val:7010,flag:'reported',
+    desc:'Total federal outlays FY2025: $7.01T against $5.24T of revenue — a $1.78T deficit, financed by borrowing. Gross national debt ~$39.2T (June 2026).',
+    src:'https://www.cbo.gov/publication/61307',srcName:'CBO Monthly Budget Review, FY2025 (final)'},
+  {id:'socsec',label:'Social Security',cat:'government',val:1569,flag:'reported',parent:'gov',
+    desc:'Largest single federal program. $1.57T in benefits FY2025 (+8.4% YoY) to retirees and disabled workers.',
+    src:'https://www.cbo.gov/publication/61307',srcName:'CBO MBR FY2025'},
+  {id:'va',label:'Veterans Affairs',cat:'government',val:377,flag:'reported',parent:'gov',
+    desc:'$377B FY2025 (+15.9%), one of the fastest-growing line items.',
+    src:'https://www.cbo.gov/publication/61307',srcName:'CBO MBR FY2025'},
+
+  // DEFENSE / SPACE
+  {id:'sec_defense',label:'Defense & Space Contractors',cat:'defense',val:464,flag:'reported',
+    desc:'~$464B of federal contracts went to defense in FY2024 — about 60% of all federal contract dollars. The top 10 contractors take ~$183B (24%) of everything the government buys.',
+    src:'https://www.gao.gov/blog/snapshot-government-wide-contracting-fy-2024-interactive-dashboard',srcName:'US GAO — FY2024 Contracting Dashboard'},
+  {id:'lockheed',label:'Lockheed Martin',cat:'defense',val:71,flag:'reported',parent:'sec_defense',
+    desc:'$71.0B revenue FY2024, ~73% from the US government. The single largest federal contractor.',
+    src:'https://www.sec.gov/Archives/edgar/data/0000936468/000093646825000009/lmt-20241231.htm',srcName:'Lockheed Martin 10-K FY2024 (SEC)'},
+  {id:'rtx',label:'RTX (Raytheon)',cat:'defense',val:80.7,flag:'reported',parent:'sec_defense',
+    desc:'$80.7B revenue FY2024; roughly half government-exposed (missiles, radar, engines).',
+    src:'https://en.wikipedia.org/wiki/RTX_Corporation',srcName:'RTX Corporation — FY2024 results'},
+  {id:'boeing',label:'Boeing (Defense)',cat:'defense',val:23.9,flag:'reported',parent:'sec_defense',
+    desc:'Boeing Defense, Space & Security segment: $23.9B FY2024 (of $66.5B total company revenue).',
+    src:'https://www.sec.gov/Archives/edgar/data/0000012927/000001292725000015/ba-20241231.htm',srcName:'Boeing 10-K FY2024 (SEC)'},
+  {id:'gd',label:'General Dynamics',cat:'defense',val:47.7,flag:'reported',parent:'sec_defense',
+    desc:'$47.7B FY2024 — submarines, combat vehicles, and Gulfstream jets.',
+    src:'https://www.gd.com/Articles/2025/01/29/general-dynamics-reports-fourth-quarter-and-full-year-2024-financial-results',srcName:'General Dynamics FY2024 results'},
+  {id:'northrop',label:'Northrop Grumman',cat:'defense',val:41,flag:'reported',parent:'sec_defense',
+    desc:'$41.0B FY2024 (+4.4%) — nearly all defense, incl. the B-21 bomber and nuclear modernization.',
+    src:'https://stockanalysis.com/stocks/noc/revenue/',srcName:'Northrop Grumman FY2024 results'},
+  {id:'spacex',label:'SpaceX',cat:'defense',val:3.8,flag:'estimate',parent:'sec_defense',
+    desc:'Your example. SpaceX has won ~$22B in cumulative federal awards; ~$3.8B/yr recently (NASA ~$2.0B + DoD ~$1.8B). Tax dollars fund launches, crew flights, and the Artemis Moon lander — and flow onward to SpaceX’s own suppliers.',
+    src:'https://www.usaspending.gov/recipient/8a3a5525-3218-a488-db0e-4823241ceb90-C/latest',srcName:'USASpending.gov — SpaceX recipient profile'},
+  {id:'palantir',label:'Palantir',cat:'defense',val:1.2,flag:'reported',parent:'sec_defense',
+    desc:'$1.2B US-government revenue FY2024 (of $2.87B total). Data/AI software for defense and immigration agencies.',
+    src:'https://www.sec.gov/Archives/edgar/data/0001321655/000132165525000022/pltr-20241231.htm',srcName:'Palantir 10-K FY2024 (SEC)'},
+  {id:'boozallen',label:'Booz Allen Hamilton',cat:'defense',val:10.7,flag:'reported',parent:'sec_defense',
+    desc:'$10.7B revenue FY2024 — about 98% from the US government. The archetype of the "Beltway" consulting flow.',
+    src:'https://www.sec.gov/Archives/edgar/data/0001443646/000144364624000074/q4fy24bahexhibit991.htm',srcName:'Booz Allen FY2024 8-K (SEC)'},
+  {id:'starlink',label:'Starlink / Starshield',cat:'defense',val:13,flag:'ceiling',parent:'spacex',
+    desc:'Where SpaceX money compounds: a DoD Starlink IDIQ with a ~$13B/10-yr ceiling, a classified ~$1.8B NRO "Starshield" spy-satellite deal, and a $2.29B Space Force data-network award (2026). Ceilings, not cash yet.',
+    src:'https://spacenews.com/spacex-providing-starlink-services-to-dod-under-unique-terms-and-conditions/',srcName:'SpaceNews — Starlink DoD terms'},
+  {id:'spacex_suppliers',label:'SpaceX suppliers',cat:'defense',val:null,flag:'estimate',parent:'spacex',
+    desc:'Tax dollars flow onward into raw materials, avionics, and specialty manufacturers. SpaceX is private, so supplier-level spend is largely undisclosed — the trail goes dark here.',
+    src:'https://builtin.com/articles/elon-musk-government-contracts',srcName:'Built In — Musk government contracts'},
+
+  // HEALTHCARE
+  {id:'sec_health',label:'Healthcare System',cat:'health',val:4900,flag:'reported',
+    desc:'US national health expenditure: $4.9T (2023, latest CMS final) — ~17% of GDP. Government (Medicare + Medicaid) is ~39%; private insurance ~30%; out-of-pocket ~10%.',
+    src:'https://www.cms.gov/data-research/statistics-trends-and-reports/national-health-expenditure-data/nhe-fact-sheet',srcName:'CMS — National Health Expenditure'},
+  {id:'unitedhealth',label:'UnitedHealth Group',cat:'health',val:400.3,flag:'reported',parent:'sec_health',
+    desc:'$400.3B revenue FY2024. Insurer (UnitedHealthcare) + provider/PBM arm (Optum). The largest healthcare company on earth.',
+    src:'https://www.sec.gov/Archives/edgar/data/731766/000073176625000022/a2024q4exhibit991.htm',srcName:'UnitedHealth 10-K FY2024 (SEC)'},
+  {id:'cvs',label:'CVS Health',cat:'health',val:372.8,flag:'reported',parent:'sec_health',
+    desc:'$372.8B FY2024 — pharmacy, insurer (Aetna), and the CVS Caremark PBM under one roof.',
+    src:'https://www.cvshealth.com/news/company-news/',srcName:'CVS Health investor relations'},
+  {id:'pbm',label:'Big 3 PBMs',cat:'health',val:null,flag:'estimate',parent:'sec_health',harm:true,
+    harmNote:'<b>Opaque middlemen.</b> Three pharmacy-benefit managers — CVS Caremark, OptumRx (UnitedHealth), Express Scripts (Cigna) — control ~80% of US prescriptions, all owned by insurers. Their pricing is largely hidden, and is a focus of "manufactured opacity" scrutiny.',
+    desc:'The three dominant pharmacy-benefit managers sit between patients, pharmacies, and drugmakers and steer ~80% of prescriptions.',
+    src:'https://www.drugchannels.net/2025/03/the-top-pharmacy-benefit-managers-of.html',srcName:'Drug Channels — Top PBMs 2024'},
+  {id:'pe_hosp',label:'PE-owned hospitals',cat:'health',val:null,flag:'estimate',parent:'sec_health',harm:true,
+    harmNote:'<b>Profit vs. care.</b> Private equity owns ~488 US hospitals plus thousands of nursing homes and clinics. Peer-reviewed work found resident <b>mortality rose ~10%</b> after PE buyout of nursing homes, with more falls and infections — while owners extract cash via dividend recaps and sale-leasebacks.',
+    desc:'Private equity owns an estimated 488 US hospitals (PESP, 2025) and 5–13% of nursing homes, financed with debt loaded onto the facilities.',
+    src:'https://pestakeholder.org/private-equity-hospital-tracker/',srcName:'Private Equity Stakeholder Project — Hospital Tracker'},
+  {id:'glp1',label:'GLP-1 drugs (Lilly / Novo)',cat:'health',val:70,flag:'estimate',parent:'sec_health',
+    desc:'Weight-loss/diabetes drugs: ~$70B global market 2025 → ~$87–101B 2026. Eli Lilly guided $80–83B total revenue for 2026 (+25%); its tirzepatide alone did $18.3B in 2025.',
+    src:'https://www.cnbc.com/2026/05/06/wegovy-glp1-weight-loss-novo-nordisk-earnings-stock-nvo-ozempic.html',srcName:'CNBC — GLP-1 earnings (2026)'},
+
+  // TECH / AI
+  {id:'sec_tech',label:'Big Tech / AI Buildout',cat:'tech',val:725,flag:'guidance',
+    desc:'The biggest capital surge happening right now: the four hyperscalers plan ~$725B of capex in 2026 (up from ~$410B in 2025), ~75% of it AI data centers. Funded by ad and cloud revenue from consumers and business.',
+    src:'https://www.tomshardware.com/tech-industry/big-tech/big-techs-ai-spending-plans-reach-725-billion',srcName:'Tom’s Hardware — Big Tech capex 2026'},
+  {id:'microsoft',label:'Microsoft',cat:'tech',val:190,flag:'guidance',parent:'sec_tech',
+    desc:'~$190B capex guided for CY2026 (incl. ~$25B of memory/components). Owns 27% of OpenAI (~$135B stake).',
+    src:'https://marketwise.com/investing/ai-demand-big-tech-earnings-spending/',srcName:'MarketWise — Big Tech AI spending'},
+  {id:'amazon',label:'Amazon',cat:'tech',val:200,flag:'guidance',parent:'sec_tech',
+    desc:'~$200B capex guided 2026; $716.9B total revenue 2025. AWS is the cloud backbone for much of the AI economy.',
+    src:'https://thenextweb.com/news/alphabet-amazon-meta-q1-2026-earnings-ai-cloud',srcName:'TNW — hyperscaler Q1 2026 earnings'},
+  {id:'alphabet',label:'Alphabet / Google',cat:'tech',val:190,flag:'guidance',parent:'sec_tech',
+    desc:'Up to ~$190B capex 2026; ~$402B total revenue 2025 with ~$300B from advertising (~75%). The ad engine funds the AI buildout.',
+    src:'https://www.tomshardware.com/tech-industry/big-tech/big-techs-ai-spending-plans-reach-725-billion',srcName:'Tom’s Hardware — capex 2026'},
+  {id:'meta',label:'Meta',cat:'tech',val:135,flag:'guidance',parent:'sec_tech',harm:true,
+    harmNote:'<b>They studied the harm.</b> Unsealed 2025 court documents show Meta researchers calling Instagram "a drug… we’re basically pushers," and the company halting a study after it found quitting Facebook reduced depression. First youth-mental-health trials are slated for 2026.',
+    desc:'$125–145B capex guided 2026; ~$196B advertising revenue 2025 (+22%). Ad money from attention funds the data-center spend.',
+    src:'https://www.cnn.com/2025/11/25/tech/social-media-youth-mental-health-lawsuit-meta-tiktok-snap-youtube',srcName:'CNN — social media youth-harm suits'},
+  {id:'nvidia',label:'Nvidia',cat:'tech',val:326,flag:'reported',parent:'sec_tech',
+    desc:'The toll booth of AI. Latest quarter (Q1 FY27) revenue $81.6B — a ~$326B run-rate — with $75.2B from data-center chips alone (~90% of revenue). Nearly every hyperscaler dollar of compute passes through here.',
+    src:'https://www.sec.gov/Archives/edgar/data/0001045810/000104581026000051/q1fy27pr.htm',srcName:'Nvidia Q1 FY2027 results (SEC)'},
+  {id:'openai',label:'OpenAI',cat:'tech',val:20,flag:'reported',parent:'sec_tech',
+    desc:'$20B revenue 2025 (~$25B run-rate early 2026), valued ~$500B. Committed to ~$300B of Oracle compute and the $500B "Stargate" data-center project — spending far ahead of revenue.',
+    src:'https://sacra.com/c/openai/',srcName:'Sacra — OpenAI revenue & deals'},
+  {id:'anthropic',label:'Anthropic',cat:'tech',val:30,flag:'reported',parent:'sec_tech',
+    desc:'~$30B annualized revenue run-rate (Apr 2026), up ~80x in a year; $380B valuation (Series G).',
+    src:'https://venturebeat.com/technology/anthropic-says-it-hit-a-30-billion-revenue-run-rate-after-crazy-80x-growth',srcName:'VentureBeat — Anthropic run-rate'},
+  {id:'utilities',label:'Power & Utilities',cat:'tech',val:1400,flag:'estimate',parent:'sec_tech',harm:true,
+    harmNote:'<b>Cost shifted to you.</b> US utilities plan ~$1.4T of grid investment over ~5 years, largely to feed AI data centers — and a chunk of that cost lands on ordinary ratepayers’ electricity bills. Data centers may hit 6.7–12% of US power by 2028, with heavy water use for cooling.',
+    desc:'~$1.4T of planned US grid/utility investment, data-center driven. The physical, energy, and water footprint of the AI boom.',
+    src:'https://www.cbsnews.com/news/data-centers-drive-1-4-trillion-power-grid-investment/',srcName:'CBS News — $1.4T grid investment'},
+  {id:'tsmc',label:'TSMC',cat:'tech',val:122,flag:'reported',parent:'nvidia',
+    desc:'$122.4B revenue 2025. The Taiwan foundry that physically fabricates Nvidia’s (and Apple’s) chips — the ultimate chokepoint of the AI supply chain.',
+    src:'https://pr.tsmc.com/english/news/3278',srcName:'TSMC — 2025 revenue'},
+  {id:'asml',label:'ASML',cat:'tech',val:38,flag:'reported',parent:'nvidia',
+    desc:'~$38B sales 2025. The only company that makes EUV lithography machines — without it, no advanced chips exist anywhere.',
+    src:'https://companiesmarketcap.com/asml/revenue/',srcName:'ASML — FY2025 results'},
+
+  // FINANCE
+  {id:'sec_finance',label:'Wall Street & Asset Managers',cat:'finance',val:null,flag:'reported',
+    desc:'The layer that owns the rest of the map. The "Big Three" index managers alone steward ~$31.7T and hold 15–25% of nearly every large public company — defense, tech, healthcare, tobacco alike.',
+    src:'https://www.sec.gov/Archives/edgar/data/0002012383/000119312526071966/blk-20251231.htm',srcName:'BlackRock 10-K FY2025 (SEC)'},
+  {id:'blackrock',label:'BlackRock',cat:'finance',val:14000,flag:'reported',parent:'sec_finance',
+    desc:'$14.0T assets under management (Dec 2025) — larger than the GDP of any country except the US and China. A major holder of the contractors, tech giants, insurers, and tobacco firms elsewhere on this map, and a buyer of government debt.',
+    src:'https://www.sec.gov/Archives/edgar/data/0002012383/000119312526071966/blk-20251231.htm',srcName:'BlackRock 10-K FY2025 (SEC)'},
+  {id:'vanguard',label:'Vanguard',cat:'finance',val:12000,flag:'estimate',parent:'sec_finance',
+    desc:'~$12T AUM (privately held, so figures are estimates). With BlackRock and State Street, forms the index-fund ownership core of corporate America.',
+    src:'https://www.statista.com/statistics/1260855/vanguard-aum/',srcName:'Statista — Vanguard AUM'},
+  {id:'statestreet',label:'State Street',cat:'finance',val:5700,flag:'reported',parent:'sec_finance',
+    desc:'~$5.7T AUM (2025 record). Third of the "Big Three" universal owners.',
+    src:'https://www.sec.gov/Archives/edgar/data/0000093751/000009375125000193/ssgarbccapitalmarketsglo.htm',srcName:'State Street 8-K 2025 (SEC)'},
+  {id:'jpmorgan',label:'JPMorgan Chase',cat:'finance',val:3460,flag:'reported',parent:'sec_finance',
+    desc:'$3.46T in assets — the largest US bank. The central node of the lending and payments system.',
+    src:'https://www.spglobal.com/market-intelligence/en/news-insights/articles/2024/12/50-largest-us-banks-by-total-assets-q3-2024-86449795',srcName:'S&P Global — largest US banks'},
+  {id:'buybacks',label:'S&P 500 Buybacks',cat:'finance',val:942,flag:'reported',parent:'sec_finance',
+    desc:'$942.5B of stock bought back by S&P 500 firms in 2024 — a record. Corporate cash returned to shareholders rather than wages or investment; with dividends, $1.57T total.',
+    src:'https://www.spglobal.com/spdji/en/corporate-news/article/sp-500-q4-2024-buybacks-increase-74-and-2024-expenditure-sets-new-record-by-increasing-18-5/',srcName:'S&P Dow Jones Indices — 2024 buybacks'},
+  {id:'pe',label:'Private Equity',cat:'finance',val:17500,flag:'estimate',parent:'sec_finance',
+    desc:'~$17.5T in global private-capital AUM (2024), with ~$2.5T of "dry powder" waiting to be deployed — increasingly into healthcare, housing, and essential services.',
+    src:'https://www.mckinsey.com/industries/private-capital/our-insights/global-private-markets-report-2024',srcName:'McKinsey — Global Private Markets 2024'},
+
+  // HARM ECONOMY
+  {id:'sec_harm',label:'The Harm Economy',cat:'harm',val:null,flag:'estimate',harm:true,
+    harmNote:'<b>Profit from harm.</b> A cluster of legal, fast-growing industries whose revenue rises with documented public harm — and whose science or marketing works to keep the harm contested. The present-day rhyme with leaded gasoline.',
+    desc:'Sectors where money flows in proportion to addiction, compulsion, or chronic disease.',
+    src:'https://www.americangaming.org/resources/commercial-gaming-revenue-tracker/',srcName:'American Gaming Association'},
+  {id:'betting',label:'Sports Betting',cat:'harm',val:16.96,flag:'reported',parent:'sec_harm',harm:true,
+    harmNote:'<b>Young men at the epicenter.</b> In states that legalized online betting, bankruptcies rose ~28% and debt-collection amounts climbed, appearing ~2 years after legalization. Up to 10.5M US adults face gambling harm annually.',
+    desc:'$166.94B wagered in 2025; $16.96B kept by sportsbooks (+23%); $3.71B in state taxes. The fastest-normalizing harm industry, powered by app design and saturation advertising.',
+    src:'https://www.npr.org/2026/04/04/nx-s1-5773354/legal-sports-betting-research-credit-bankruptcy',srcName:'NPR — betting & financial distress'},
+  {id:'tobacco',label:'Tobacco / Nicotine',cat:'harm',val:90,flag:'estimate',parent:'sec_harm',harm:true,
+    harmNote:'<b>The original template.</b> The industry that invented "manufactured doubt." Still ~$84–99B/yr in the US, now pivoting to nicotine pouches (PMI’s ZYN shipments guided to 800M+ cans in 2025).',
+    desc:'~$84–99B US market. Altria $20.4B and Philip Morris Intl $37.9B revenue 2024.',
+    src:'https://www.gminsights.com/industry-analysis/tobacco-products-market',srcName:'GMInsights — US tobacco market'},
+  {id:'upf',label:'Ultra-processed Food',cat:'harm',val:230,flag:'estimate',parent:'sec_harm',harm:true,
+    harmNote:'<b>Doubt, repeated.</b> Diets high in ultra-processed food are linked to metabolic disease; the industry funds research and disputes the very definition of "ultra-processed" — a near-exact echo of the lead industry’s "show me the data."',
+    desc:'Global packaged-food giants: Nestlé ~$103B, PepsiCo $91.9B, Mondelez $36.4B revenue 2024.',
+    src:'https://pubmed.ncbi.nlm.nih.gov/40692632/',srcName:'PubMed — UPF harm & conflicts of interest'},
+
+  // DEFENSE — second tier
+  {id:'l3harris',label:'L3Harris',cat:'defense',val:21.3,flag:'reported',parent:'sec_defense',
+    desc:'$21.3B revenue FY2024, ~76% from the US government (~$16.2B). Comms, electronic warfare, missiles.',
+    src:'https://investors.l3harris.com/news/news-details/2025/L3Harris-Technologies-Reports-Fourth-Quarter-and-Full-Year-2024-Results-Initiates-2025-Guidance/default.aspx',srcName:'L3Harris FY2024 results'},
+  {id:'leidos',label:'Leidos',cat:'defense',val:16.7,flag:'reported',parent:'sec_defense',
+    desc:'$16.7B FY2024, ~87% federal. Runs the military’s MHS GENESIS health-record system (~$1.1B award).',
+    src:'https://investors.leidos.com/news-releases/news-release-details/leidos-posts-strong-fourth-quarter-and-fiscal-year-2024-results',srcName:'Leidos FY2024 results'},
+  {id:'saic',label:'SAIC',cat:'defense',val:7.5,flag:'reported',parent:'sec_defense',
+    desc:'$7.5B FY2025, ~98% from the US government across ~1,700 contracts. Army software lifecycle award $1.8B.',
+    src:'https://saic.gcs-web.com/news-releases/news-release-details/saic-announces-fourth-quarter-and-full-fiscal-year-2025-results',srcName:'SAIC FY2025 results'},
+  {id:'caci',label:'CACI',cat:'defense',val:8.63,flag:'reported',parent:'sec_defense',
+    desc:'$8.63B FY2025 (+13%), mostly US government; ~75% defense and intelligence.',
+    src:'https://investor.caci.com/news/news-details/2025/CACI-Reports-Results-for-Its-Fiscal-2025-Fourth-Quarter-and-Full-Year-and-Issues-Fiscal-Year-2026-Guidance/',srcName:'CACI FY2025 results'},
+  {id:'amentum',label:'Amentum',cat:'defense',val:13.9,flag:'reported',parent:'sec_defense',
+    desc:'$13.9B FY2024 (pro forma), ~80% federal. Runs the DOE Hanford nuclear-waste cleanup ($45B / 10 yrs).',
+    src:'https://www.govconwire.com/articles/amentum-fy24-pro-forma-revenues-total-backlog',srcName:'GovConWire — Amentum FY2024'},
+  {id:'anduril',label:'Anduril',cat:'defense',val:1,flag:'estimate',parent:'sec_defense',
+    desc:'Defense-tech upstart: ~$1B revenue, $30.5B valuation (2025). Took over the Army’s IVAS headset program (up to $22B) and won an Army counter-drone IDIQ up to $20B (2026).',
+    src:'https://fnex.com/anduril-secures-2-5b-in-funding-doubling-valuation-to-30-5b/',srcName:'Anduril Series G / valuation'},
+  {id:'blueorigin',label:'Blue Origin',cat:'defense',val:null,flag:'estimate',parent:'sec_defense',
+    desc:'Bezos’s rocket company. Space Force NSSL Lane 2 award up to $2.4B; NASA Artemis “Blue Moon” lunar lander $3.4B. Revenue undisclosed.',
+    src:'https://spaceflightnow.com/2025/04/05/u-s-space-force-awards-13-7-billion-in-new-national-security-launch-contracts-to-blue-origin-spacex-and-ula/',srcName:'Spaceflight Now — NSSL Lane 2'},
+  {id:'ula',label:'United Launch Alliance',cat:'defense',val:null,flag:'estimate',parent:'sec_defense',
+    desc:'Boeing–Lockheed launch JV. Space Force NSSL Lane 2 award up to $5.4B (~19 missions).',
+    src:'https://www.spaceforce.mil/News/Article-Display/Article/4146459/space-systems-command-awards-national-security-space-launch-phase-3-lane-2-cont/',srcName:'US Space Force — NSSL Lane 2'},
+  {id:'bae',label:'BAE Systems Inc.',cat:'defense',val:13.6,flag:'estimate',parent:'sec_defense',
+    desc:'US arm of BAE (UK parent files abroad). ~$13.6B US revenue, a top-10 Pentagon supplier — combat vehicles, electronics, GPS.',
+    src:'https://en.wikipedia.org/wiki/BAE_Systems_Inc.',srcName:'BAE Systems Inc.'},
+  {id:'honeywell',label:'Honeywell (Aerospace)',cat:'defense',val:15,flag:'reported',parent:'sec_defense',
+    desc:'~$15B aerospace revenue 2024; defense & space is its fastest-growing unit (+19% profit).',
+    src:'https://insidedefense.com/insider/honeywell-reports-16-increase-aerospace-sales',srcName:'Inside Defense — Honeywell aerospace'},
+
+  // HEALTHCARE — second tier
+  {id:'centene',label:'Centene',cat:'health',val:163.1,flag:'reported',parent:'sec_health',harm:true,
+    harmNote:'<b>Tax dollars, private margins.</b> The largest US Medicaid managed-care insurer — nearly all of its $163B revenue is government money (Medicaid + ACA subsidies). Has paid multi-state settlements over alleged Medicaid drug-billing overcharges.',
+    desc:'$163.1B revenue FY2024. Runs Medicaid and ACA plans for ~17M people; overwhelmingly government-funded.',
+    src:'https://www.prnewswire.com/news-releases/centene-corporation-reports-2024-results-302366988.html',srcName:'Centene FY2024 results'},
+  {id:'elevance',label:'Elevance (Anthem)',cat:'health',val:175.2,flag:'reported',parent:'sec_health',
+    desc:'$175.2B operating revenue FY2024; 45.7M members across Blue Cross commercial, Medicaid, and Medicare Advantage.',
+    src:'https://www.elevancehealth.com/content/dam/elevance-health/documents/earnings/4Q2024_ELV_Earnings_Release.pdf',srcName:'Elevance Health FY2024'},
+  {id:'humana',label:'Humana',cat:'health',val:117.8,flag:'reported',parent:'sec_health',harm:true,
+    harmNote:'<b>The Medicare Advantage premium.</b> ~84% of Humana’s revenue comes from federal contracts, mostly Medicare Advantage. Watchdog MedPAC estimates the government overpays MA plans by ~$83B/yr versus traditional Medicare — a transfer from taxpayers to insurers.',
+    desc:'$117.8B revenue FY2024; ~84% from the federal government — the most government-dependent big insurer.',
+    src:'https://press.humana.com/news/news-details/2025/Humana-Reports-Fourth-Quarter-2024-Financial-Results-Provides-Full-Year-2025-Financial-Guidance/default.aspx',srcName:'Humana FY2024 results'},
+  {id:'hca',label:'HCA Healthcare',cat:'health',val:70.6,flag:'reported',parent:'sec_health',
+    desc:'$70.6B revenue FY2024 — the largest for-profit hospital chain, with heavy Medicare/Medicaid reimbursement.',
+    src:'https://investor.hcahealthcare.com/news/news-details/2025/HCA-Healthcare-Reports-Fourth-Quarter-2024-Results-and-Provides-2025-Guidance/default.aspx',srcName:'HCA Healthcare FY2024'},
+  {id:'distributors',label:'Big 3 Drug Distributors',cat:'health',val:880,flag:'reported',parent:'sec_health',harm:true,
+    harmNote:'<b>The opioid pipeline.</b> McKesson, Cencora, and Cardinal Health control ~90% of US drug distribution. They agreed to pay ~$21B for their role in flooding communities with opioids — part of a national settlement total now exceeding $50B.',
+    desc:'McKesson $359B, Cencora $294B, Cardinal Health $227B (~$880B combined) — a three-company oligopoly moving nearly every prescription drug in America.',
+    src:'https://ncopioidsettlement.org/about/national-settlements/',srcName:'National opioid settlements tracker'},
+  {id:'moderna',label:'Moderna',cat:'health',val:3.2,flag:'estimate',parent:'sec_health',
+    desc:'~$3.2B revenue 2024. Built on ~$1.8B of BARDA development funding plus billions in US vaccine purchases under Operation Warp Speed — a company largely created by government money.',
+    src:'https://www.sec.gov/Archives/edgar/data/0001682852/000168285224000057/exhibit9912024q3pressrelea.htm',srcName:'Moderna 2024 results (SEC)'},
+
+  // TECH — second tier (AI supply chain)
+  {id:'oracle',label:'Oracle',cat:'tech',val:57.4,flag:'reported',parent:'sec_tech',
+    desc:'$57.4B revenue FY2025. Its cloud backlog exploded to ~$523B on a ~$300B OpenAI “Stargate” compute deal. Also a JWCC military-cloud awardee.',
+    src:'https://www.oracle.com/news/announcement/q4fy25-earnings-release-2025-06-11/',srcName:'Oracle FY2025 results'},
+  {id:'broadcom',label:'Broadcom',cat:'tech',val:64,flag:'reported',parent:'sec_tech',
+    desc:'~$64B revenue FY2025, ~$20B from AI. Designs custom AI chips for Google and Meta; guides to >$100B custom-AI-chip revenue by 2027.',
+    src:'https://www.sec.gov/Archives/edgar/data/0001730168/000173016825000116/avgo-11022025x8kxex99.htm',srcName:'Broadcom FY2025 results (SEC)'},
+  {id:'amd',label:'AMD',cat:'tech',val:34.6,flag:'reported',parent:'sec_tech',
+    desc:'$34.6B revenue 2025 (+34%); $16.6B data-center. Nvidia’s main GPU challenger with its Instinct MI-series chips.',
+    src:'https://ir.amd.com/news-events/press-releases/detail/1276/amd-reports-fourth-quarter-and-full-year-2025-financial-results',srcName:'AMD FY2025 results'},
+  {id:'coreweave',label:'CoreWeave',cat:'tech',val:5.13,flag:'reported',parent:'sec_tech',
+    desc:'$5.13B revenue 2025 and a $66.8B backlog — a pure-play AI cloud. 67% of revenue comes from Microsoft; big commitments from OpenAI ($22B) and Meta ($14B).',
+    src:'https://www.sec.gov/Archives/edgar/data/0001769628/000176962825000059/coreweave3q25earningspress.htm',srcName:'CoreWeave 2025 results (SEC)'},
+  {id:'dell',label:'Dell (AI servers)',cat:'tech',val:25,flag:'reported',parent:'sec_tech',
+    desc:'>$25B of AI servers shipped in FY2026, entering FY2027 with a record $43B backlog. Assembles Nvidia GPUs into racks for data centers.',
+    src:'https://investors.delltechnologies.com/news-releases/news-release-details/dell-technologies-delivers-fourth-quarter-and-full-year-fiscal-3',srcName:'Dell FY2026 results'},
+  {id:'supermicro',label:'Super Micro',cat:'tech',val:40,flag:'guidance',parent:'sec_tech',
+    desc:'Guided to ≥$40B revenue FY2026 on AI-server demand — a smaller rival to Dell building Nvidia-based systems.',
+    src:'https://www.indexbox.io/blog/super-micro-computer-raises-fy-2026-revenue-forecast-to-over-40-billion/',srcName:'Super Micro FY2026 guidance'},
+  {id:'memory',label:'HBM Memory (SK Hynix/Micron)',cat:'tech',val:35,flag:'estimate',parent:'nvidia',
+    desc:'High-bandwidth memory is the scarce ingredient stacked onto every AI GPU. SK Hynix holds ~62% share, Micron ~21%, Samsung ~17%. ~$35B market in 2025, heading toward ~$100B by 2028.',
+    src:'https://www.astutegroup.com/news/general/sk-hynix-holds-62-of-hbm-micron-overtakes-samsung-2026-battle-pivots-to-hbm4/',srcName:'HBM market shares 2025'},
+
+  // HARM — company tier
+  {id:'draftkings',label:'DraftKings',cat:'harm',val:6.05,flag:'reported',parent:'betting',
+    desc:'$6.05B revenue 2025. With FanDuel, half of a duopoly controlling ~70% of US sports betting.',
+    src:'https://www.sec.gov/Archives/edgar/data/0001883685/000188368525000035/q325-prx8kexx991.htm',srcName:'DraftKings 2025 results (SEC)'},
+  {id:'fanduel',label:'FanDuel (Flutter)',cat:'harm',val:5.3,flag:'estimate',parent:'betting',
+    desc:'~$5.3B US revenue 2025 (+29%); the US market leader by gaming revenue, owned by Flutter Entertainment.',
+    src:'https://www.sec.gov/Archives/edgar/data/0001635327/000119312525277558/d82804dex991.htm',srcName:'Flutter 2025 results (SEC)'},
+  {id:'altria',label:'Altria',cat:'harm',val:20.4,flag:'reported',parent:'tobacco',
+    desc:'$20.4B revenue 2024 (Marlboro in the US, plus the on! nicotine pouch).',
+    src:'https://www.sec.gov/Archives/edgar/data/0000764180/000076418024000009/exhibit991financialstateme.htm',srcName:'Altria FY2024 results (SEC)'},
+  {id:'pmi',label:'Philip Morris Intl',cat:'harm',val:37.9,flag:'reported',parent:'tobacco',
+    desc:'$37.9B revenue 2024 (ex-excise). ZYN nicotine pouches are booming — guided to 800M+ US cans in 2025.',
+    src:'https://www.sec.gov/Archives/edgar/data/0001413329/000141332925000011/earningsreleasepm-ex991xfy.htm',srcName:'Philip Morris Intl FY2024 (SEC)'},
+  {id:'nestle',label:'Nestlé',cat:'harm',val:103,flag:'reported',parent:'upf',
+    desc:'~$103B revenue 2024 — the world’s largest food company.',
+    src:'https://www.nestle.com/media/pressreleases/allpressreleases/full-year-results-2024',srcName:'Nestlé FY2024 results'},
+  {id:'pepsico',label:'PepsiCo',cat:'harm',val:91.9,flag:'reported',parent:'upf',
+    desc:'$91.9B revenue 2024 — snacks (Frito-Lay) and drinks.',
+    src:'https://www.sec.gov/Archives/edgar/data/0000077476/000007747625000007/pep-20241228.htm',srcName:'PepsiCo 10-K FY2024 (SEC)'},
+  {id:'mondelez',label:'Mondelez',cat:'harm',val:36.4,flag:'reported',parent:'upf',
+    desc:'~$36.4B revenue 2024 — Oreo, Cadbury, Ritz.',
+    src:'https://www.sec.gov/Archives/edgar/data/0001103982/000110398225000024/mdlzearningsreleasecontent.htm',srcName:'Mondelez FY2024 results (SEC)'},
+
+  // ENERGY & OIL
+  {id:'sec_energy',label:'Energy & Oil',cat:'energy',val:null,flag:'reported',
+    desc:'Oil majors and power producers. Consumers pay at the pump and the meter; now the AI buildout is a giant new electricity customer reviving nuclear and gas.',
+    src:'https://corporate.exxonmobil.com/news/news-releases/2025/0131_exxonmobil-announces-2024-results',srcName:'ExxonMobil FY2024'},
+  {id:'exxon',label:'ExxonMobil',cat:'energy',val:349.6,flag:'reported',parent:'sec_energy',harm:true,
+    harmNote:'<b>They knew.</b> A 2023 <i>Science</i> study found Exxon’s own scientists accurately predicted global warming (~0.2°C/decade) from the late 1970s — while the company publicly cast doubt on climate science for decades. The leaded-gasoline playbook, at planetary scale.',
+    desc:'$349.6B revenue, $33.7B net income FY2024 — the largest US oil company.',
+    src:'https://www.science.org/doi/10.1126/science.abk0063',srcName:'Supran, Rahmstorf & Oreskes, Science 2023'},
+  {id:'chevron',label:'Chevron',cat:'energy',val:193.4,flag:'reported',parent:'sec_energy',
+    desc:'$193.4B revenue FY2024 (sales & operating).',
+    src:'https://www.sec.gov/Archives/edgar/data/0000093410/000009341025000009/cvx-20241231.htm',srcName:'Chevron 10-K FY2024 (SEC)'},
+  {id:'conoco',label:'ConocoPhillips',cat:'energy',val:58.6,flag:'reported',parent:'sec_energy',
+    desc:'$58.6B revenue, $9.2B net income FY2024.',
+    src:'https://www.sec.gov/Archives/edgar/data/0001163165/000116316525000006/cop-20250206x8kexx991.htm',srcName:'ConocoPhillips FY2024 (SEC)'},
+  {id:'shell',label:'Shell',cat:'energy',val:284.3,flag:'reported',parent:'sec_energy',
+    desc:'$284.3B revenue FY2024 — the largest European oil major.',
+    src:'https://www.cnbc.com/2025/01/30/shell-earnings-full-year-and-q4-2024.html',srcName:'Shell FY2024 results'},
+  {id:'nextera',label:'NextEra Energy',cat:'energy',val:24.75,flag:'reported',parent:'sec_energy',
+    desc:'$24.75B revenue FY2024 — largest US utility and renewables operator.',
+    src:'https://www.investor.nexteraenergy.com/news-and-events/news-releases/2025/01-24-2025-123043508',srcName:'NextEra FY2024'},
+  {id:'constellation',label:'Constellation Energy',cat:'energy',val:23.57,flag:'reported',parent:'sec_energy',
+    desc:'$23.57B revenue FY2024 — largest US nuclear operator. Signed a 20-yr deal to restart Three Mile Island (835 MW) to power Microsoft’s data centers.',
+    src:'https://www.constellationenergy.com/news/2024/Constellation-to-Launch-Crane-Clean-Energy-Center-Restoring-Jobs-and-Carbon-Free-Power-to-The-Grid.html',srcName:'Constellation — TMI restart'},
+  {id:'talen',label:'Talen Energy',cat:'energy',val:null,flag:'reported',parent:'sec_energy',
+    desc:'Sells up to 1,920 MW of nuclear power from Susquehanna to Amazon for data centers (~$18B est. over the deal).',
+    src:'https://ir.talenenergy.com/news-releases/news-release-details/talen-energy-expands-nuclear-energy-relationship-amazon',srcName:'Talen–Amazon nuclear PPA'},
+  {id:'gevernova',label:'GE Vernova',cat:'energy',val:34.9,flag:'reported',parent:'sec_energy',
+    desc:'$34.9B revenue FY2024. Makes the gas turbines and grid gear the data-center boom needs; turbine orders hit a 20-year high in 2024.',
+    src:'https://www.gevernova.com/news/press-releases/ge-vernova-reports-fourth-quarter-full-year-2024-financial-results',srcName:'GE Vernova FY2024'},
+
+  // PHARMA (under health)
+  {id:'pfizer',label:'Pfizer',cat:'health',val:63.6,flag:'reported',parent:'sec_health',harm:true,
+    harmNote:'<b>Americans pay more.</b> US prescription prices average ~2.8x (brand-name ~4.2x) those in other wealthy nations (RAND). The FTC found the big PBMs marked up specialty drugs by hundreds-to-thousands of percent, netting $7.3B above acquisition cost (2017–22).',
+    desc:'$63.6B revenue FY2024 — one of the largest drugmakers.',
+    src:'https://www.rand.org/news/press/2024/02/01.html',srcName:'RAND — US drug prices 2.78x'},
+  {id:'jnj',label:'Johnson & Johnson',cat:'health',val:88.8,flag:'reported',parent:'sec_health',
+    desc:'$88.8B sales FY2024 — pharma + medical devices. Paid ~$5B in opioid settlements.',
+    src:'https://www.jnj.com/media-center/press-releases/johnson-johnson-reports-q4-2024-and-full-year-2024-results',srcName:'J&J FY2024 results'},
+  {id:'merck',label:'Merck & Co',cat:'health',val:64.2,flag:'reported',parent:'sec_health',
+    desc:'$64.2B sales FY2024 (Keytruda-led).',
+    src:'https://www.merck.com/news/merck-announces-fourth-quarter-and-full-year-2024-financial-results/',srcName:'Merck FY2024'},
+  {id:'abbvie',label:'AbbVie',cat:'health',val:56.3,flag:'reported',parent:'sec_health',
+    desc:'$56.3B revenue FY2024 (Humira/Skyrizi).',
+    src:'https://news.abbvie.com/2025-01-31-AbbVie-Reports-Full-Year-and-Fourth-Quarter-2024-Financial-Results',srcName:'AbbVie FY2024'},
+  {id:'walgreens',label:'Walgreens',cat:'health',val:147.7,flag:'reported',parent:'sec_health',
+    desc:'~$147.7B sales FY2024 — second-largest US pharmacy chain (taken private by Sycamore in 2025).',
+    src:'https://www.sec.gov/Archives/edgar/data/0001618921/000119312524237203/d870298dex991.htm',srcName:'Walgreens FY2024 (SEC)'},
+  {id:'cigna',label:'Cigna / Evernorth',cat:'health',val:247,flag:'reported',parent:'sec_health',
+    desc:'~$247B revenue FY2024. Owns Express Scripts, one of the big-three PBMs.',
+    src:'https://www.sec.gov/Archives/edgar/data/0001739940/000095015924000134/ex99-1.htm',srcName:'Cigna FY2024 (SEC)'},
+
+  // SEMICONDUCTOR EQUIPMENT & MATERIALS (deep layer under TSMC/ASML)
+  {id:'applied_materials',label:'Applied Materials',cat:'tech',val:27.18,flag:'reported',parent:'tsmc',
+    desc:'$27.2B revenue FY2024 — largest US chip-equipment maker (deposition, etch, implant).',
+    src:'https://www.globenewswire.com/news-release/2024/11/14/2981573/0/en/Applied-Materials-Announces-Fourth-Quarter-and-Fiscal-Year-2024-Results.html',srcName:'Applied Materials FY2024'},
+  {id:'lam',label:'Lam Research',cat:'tech',val:14.91,flag:'reported',parent:'tsmc',
+    desc:'$14.9B revenue FY2024 — etch & deposition, dominant in memory.',
+    src:'https://www.prnewswire.com/news-releases/lam-research-corporation-reports-financial-results-for-the-quarter-ended-december-29-2024-302363655.html',srcName:'Lam Research FY2024'},
+  {id:'kla',label:'KLA',cat:'tech',val:9.81,flag:'reported',parent:'tsmc',
+    desc:'$9.8B revenue FY2024 — process control / inspection, near-dominant.',
+    src:'https://www.prnewswire.com/news-releases/kla-corporation-reports-fiscal-2024-fourth-quarter-results-and-full-year-results-302205684.html',srcName:'KLA FY2024'},
+  {id:'tokyo_electron',label:'Tokyo Electron',cat:'tech',val:16.2,flag:'reported',parent:'tsmc',
+    desc:'~$16.2B revenue FY2025 (Japan) — near-monopoly on photoresist coat/develop tools.',
+    src:'https://www.tel.com/ir/library/ar/pjsoh100000000rc-att/ir2025_data_section_en.pdf',srcName:'Tokyo Electron FY2025'},
+  {id:'zeiss',label:'Zeiss SMT',cat:'tech',val:null,flag:'estimate',parent:'asml',
+    desc:'The world’s sole supplier of the precision optics inside ASML’s EUV machines — among the flattest surfaces ever made. A monopoly nested inside a monopoly.',
+    src:'https://www.zeiss.com/semiconductor-manufacturing-technology/news-and-events/smt-press-releases/2025/euv-30-years.html',srcName:'Zeiss SMT'},
+  {id:'cymer',label:'Cymer (ASML)',cat:'tech',val:null,flag:'reported',parent:'asml',
+    desc:'Makes the light source for EUV lithography; owned by ASML since 2013.',
+    src:'https://www.asml.com/en/company/about-asml/cymer',srcName:'ASML — Cymer'},
+  {id:'rareearth',label:'China: rare earths & gallium',cat:'tech',val:null,flag:'estimate',parent:'tsmc',harm:true,
+    harmNote:'<b>The geopolitical chokepoint.</b> China processes ~90% of the world’s rare earths and imposed gallium/germanium export controls (2023), escalating to a US export ban in Dec 2024. One government can throttle the whole chain.',
+    desc:'China dominates rare-earth processing (~90%) and gallium/germanium — critical inputs for chips and electronics.',
+    src:'https://www.iea.org/commentaries/with-new-export-controls-on-critical-minerals-supply-concentration-risks-become-reality',srcName:'IEA — critical minerals'},
+  {id:'photoresist',label:'Japan: photoresist',cat:'tech',val:null,flag:'estimate',parent:'tsmc',
+    desc:'Japan supplies ~90% of photoresist and ~100% of the EUV-grade resist for the most advanced chips (JSR, Tokyo Ohka, Shin-Etsu).',
+    src:'https://www.trendforce.com/news/2025/11/06/news-japan-ramps-up-photoresist-investment-for-2nm-chips-tokyo-ohka-kogyo-jsr-lead-the-charge/',srcName:'TrendForce — photoresist'},
+
+  // FINANCE — private capital
+  {id:'blackstone',label:'Blackstone',cat:'finance',val:1242,flag:'reported',parent:'sec_finance',
+    desc:'$1.24T AUM — the world’s largest alternative asset manager and a dominant owner of real estate and data centers.',
+    src:'https://www.sec.gov/Archives/edgar/data/0001393818/000119312525247643/d48505dex991.htm',srcName:'Blackstone Q3 2025 (SEC)'},
+  {id:'apollo',label:'Apollo',cat:'finance',val:938,flag:'reported',parent:'sec_finance',
+    desc:'$938B AUM — credit and insurance giant (owns Athene).',
+    src:'https://www.stocktitan.net/sec-filings/APO/10-k-apollo-global-management-inc-files-annual-report-4f45671d90f7.html',srcName:'Apollo 10-K 2025'},
+  {id:'kkr',label:'KKR',cat:'finance',val:744,flag:'reported',parent:'sec_finance',
+    desc:'$744B AUM (incl. Global Atlantic insurance).',
+    src:'https://www.stocktitan.net/sec-filings/KKR/10-k-kkr-co-inc-files-annual-report-7706029b7dbd.html',srcName:'KKR 10-K 2025'},
+  {id:'carlyle',label:'Carlyle',cat:'finance',val:477,flag:'reported',parent:'sec_finance',
+    desc:'$477B AUM.',
+    src:'https://www.stocktitan.net/sec-filings/CG/10-k-carlyle-group-inc-files-annual-report-c3aacf384daa.html',srcName:'Carlyle 10-K 2025'},
+
+  // REAL ESTATE / LANDLORDS
+  {id:'sec_realestate',label:'Housing / Landlords',cat:'realestate',val:null,flag:'reported',harm:true,
+    harmNote:'<b>Wall Street as landlord.</b> After 2008, private capital bought single-family homes en masse. Blackstone, Invitation Homes, and American Homes 4 Rent each hold ~60,000+ houses — concentrating rental pricing power over ordinary renters.',
+    desc:'Institutional owners of single-family rental housing.',
+    src:'https://www.resiclubanalytics.com/p/blackstone-will-thirdlargest-us-singlefamily-portfolio-completes-tricon-residential-acquisition',srcName:'ResiClub — Blackstone SFR'},
+  {id:'invitation',label:'Invitation Homes',cat:'realestate',val:null,flag:'reported',parent:'sec_realestate',
+    desc:'~61,000 single-family rental homes (Sept 2025).',
+    src:'https://www.sec.gov/Archives/edgar/data/0001687229/000168722925000005/q42024supplemental.htm',srcName:'Invitation Homes (SEC)'},
+  {id:'amh',label:'American Homes 4 Rent',cat:'realestate',val:null,flag:'reported',parent:'sec_realestate',
+    desc:'61,479 single-family rental homes across 24 states (Dec 2025).',
+    src:'https://www.stocktitan.net/sec-filings/AMH/10-k-american-homes-4-rent-files-annual-report-b537417a823b.html',srcName:'AMH 10-K 2025'},
+
+  // WHO HOLDS THE DEBT (under bondholders)
+  {id:'japan_debt',label:'Japan',cat:'source',val:1185,flag:'reported',parent:'bondholders',
+    desc:'$1.19T in US Treasuries (Dec 2025) — the largest foreign holder of US debt.',
+    src:'https://ticdata.treasury.gov/Publish/mfhhis01.txt',srcName:'US Treasury TIC data'},
+  {id:'uk_debt',label:'United Kingdom',cat:'source',val:863,flag:'reported',parent:'bondholders',
+    desc:'$863B in US Treasuries (Dec 2025) — #2 foreign holder.',
+    src:'https://ticdata.treasury.gov/Publish/mfhhis01.txt',srcName:'US Treasury TIC data'},
+  {id:'china_debt',label:'China',cat:'source',val:684,flag:'reported',parent:'bondholders',
+    desc:'$684B in US Treasuries (Dec 2025) — #3, declining as China diversifies away from the dollar.',
+    src:'https://ticdata.treasury.gov/Publish/mfhhis01.txt',srcName:'US Treasury TIC data'},
+  {id:'fed_holdings',label:'US Federal Reserve',cat:'source',val:3800,flag:'reported',parent:'bondholders',
+    desc:'~$3.8T of US Treasuries (~14% of public debt). Interest paid to the Fed largely cycles back to the Treasury.',
+    src:'https://fred.stlouisfed.org/series/FDHBFRBN',srcName:'FRED — Fed Treasury holdings'},
+  {id:'domestic_debt',label:'US funds, pensions, banks',cat:'source',val:17000,flag:'estimate',parent:'bondholders',
+    desc:'~$17T (~53% of public debt) held domestically by mutual funds, pensions, banks, and individuals — much of it via BlackRock and Vanguard.',
+    src:'https://www.pgpf.org/article/the-federal-government-has-borrowed-trillions-but-who-owns-all-that-debt/',srcName:'Peterson Foundation'},
+  {id:'ss_trust',label:'Social Security trust fund',cat:'government',val:2400,flag:'reported',parent:'bondholders',
+    desc:'~$2.4T — the government owes itself through the Social Security trust fund (part of ~$7.4T intragovernmental holdings).',
+    src:'https://www.cbpp.org/research/social-security/understanding-the-social-security-trust-funds-0',srcName:'CBPP — Social Security trust funds'},
+
+  // AGRICULTURE & FOOD
+  {id:'sec_agri',label:'Agriculture & Food',cat:'agriculture',val:null,flag:'reported',
+    desc:'The upstream of the food system — commodity traders, seed/chemical, meat, and machinery — feeding the packaged-food giants downstream.',
+    src:'https://www.startribune.com/cargill-fiscal-2025-annual-revenue-down-154-billion-minnetonka-mn-agribusiness/601453847',srcName:'Star Tribune — Cargill FY2025'},
+  {id:'cargill',label:'Cargill',cat:'agriculture',val:154,flag:'reported',parent:'sec_agri',
+    desc:'$154B revenue FY2025 — the largest private US company; global grain, meat, and commodities trader.',
+    src:'https://www.startribune.com/cargill-fiscal-2025-annual-revenue-down-154-billion-minnetonka-mn-agribusiness/601453847',srcName:'Star Tribune — Cargill FY2025'},
+  {id:'adm',label:'ADM',cat:'agriculture',val:80.3,flag:'reported',parent:'sec_agri',
+    desc:'$80.3B revenue FY2025 — grain processing and commodities.',
+    src:'https://stockanalysis.com/stocks/adm/revenue/',srcName:'ADM FY2025'},
+  {id:'bayer',label:'Bayer (Monsanto)',cat:'agriculture',val:50,flag:'reported',parent:'sec_agri',harm:true,
+    harmNote:'<b>Roundup.</b> Bayer (which bought Monsanto) has set aside ~€11.8B and paid ~$10B+ over claims that its glyphosate weedkiller causes cancer — litigation still ongoing.',
+    desc:'~$50B revenue 2024 — seeds and agrochemicals, incl. the glyphosate weedkiller Roundup.',
+    src:'https://www.bayer.com/en/managing-the-roundup-litigation',srcName:'Bayer — Roundup litigation'},
+  {id:'tyson',label:'Tyson Foods',cat:'agriculture',val:54.4,flag:'reported',parent:'sec_agri',
+    desc:'$54.4B revenue FY2025 — largest US meat processor.',
+    src:'https://talkbusiness.net/2025/11/tyson-annual-revenue-tops-54-44-billion-beef-segment-posts-big-loss/',srcName:'Tyson FY2025'},
+  {id:'deere',label:'John Deere',cat:'agriculture',val:45.7,flag:'reported',parent:'sec_agri',
+    desc:'$45.7B revenue FY2025 — dominant farm-machinery maker.',
+    src:'https://www.sec.gov/Archives/edgar/data/0000315189/000110465925116130/de-20251126xex99d1.htm',srcName:'Deere FY2025 (SEC)'},
+
+  // PEOPLE — owners & controllers
+  {id:'sec_people',label:'Owners & Controllers',cat:'people',val:null,flag:'reported',
+    desc:'The individuals and families who own or control the companies above. The recurring pattern: a few founders hold outsized VOTING control even with minority economic stakes — and a handful of index managers are the largest shareholder of nearly everything.',
+    src:'https://www.bloomberg.com/billionaires/',srcName:'Bloomberg Billionaires Index'},
+  {id:'musk',label:'Elon Musk',cat:'people',val:700,flag:'estimate',parent:'sec_people',
+    desc:'World’s richest (~$636–735B, swings with private valuations). Controls SpaceX (~42% + majority vote), Tesla (~13%), xAI/X — and was the single largest 2024 political donor (~$290M).',
+    src:'https://www.bloomberg.com/billionaires/profiles/elon-r-musk/',srcName:'Bloomberg — Musk'},
+  {id:'tesla',label:'Tesla',cat:'people',val:null,flag:'reported',parent:'musk',
+    desc:'Musk owns ~13%. EVs and energy — a separate empire from his government-funded SpaceX.',
+    src:'https://en.wikipedia.org/wiki/Wealth_of_Elon_Musk',srcName:'Wealth of Elon Musk'},
+  {id:'xai',label:'xAI / X',cat:'people',val:null,flag:'estimate',parent:'musk',
+    desc:'Musk’s AI company, merged with X (formerly Twitter). Buys Nvidia GPUs for its “Colossus” supercluster.',
+    src:'https://en.wikipedia.org/wiki/Wealth_of_Elon_Musk',srcName:'Wealth of Elon Musk'},
+  {id:'bezos',label:'Jeff Bezos',cat:'people',val:284,flag:'reported',parent:'sec_people',
+    desc:'~$284B. Owns ~8% of Amazon and all of Blue Origin.',
+    src:'https://www.bloomberg.com/billionaires/profiles/jeffrey-p-bezos/',srcName:'Bloomberg — Bezos'},
+  {id:'zuckerberg',label:'Mark Zuckerberg',cat:'people',val:220,flag:'reported',parent:'sec_people',
+    desc:'~$220B. Holds ~13% of Meta economically but ~61% of the VOTING power via supervoting shares — effectively total control.',
+    src:'https://www.finance-monthly.com/mark-zuckerberg-net-worth-2026-meta-ai-and-the-217-billion-fortune-behind-facebooks-founder/',srcName:'Finance Monthly — Zuckerberg'},
+  {id:'ellison',label:'Larry Ellison',cat:'people',val:258,flag:'reported',parent:'sec_people',
+    desc:'~$258B. Chairman and ~41% owner of Oracle — a fortune now riding the AI-cloud boom.',
+    src:'https://www.bloomberg.com/billionaires/profiles/lawrence-j-ellison/',srcName:'Bloomberg — Ellison'},
+  {id:'huang',label:'Jensen Huang',cat:'people',val:180,flag:'reported',parent:'sec_people',
+    desc:'~$180B. Co-founder/CEO of Nvidia (~3.6%), the toll booth of the AI era.',
+    src:'https://www.bloomberg.com/billionaires/profiles/jenhsun-huang/',srcName:'Bloomberg — Huang'},
+  {id:'pagebrin',label:'Page & Brin',cat:'people',val:570,flag:'reported',parent:'sec_people',
+    desc:'Google co-founders, ~$285B each. Together they control ~51% of Alphabet’s VOTING power via supervoting Class B shares.',
+    src:'https://www.bloomberg.com/billionaires/profiles/lawrence-e-page/',srcName:'Bloomberg — Page'},
+  {id:'buffett',label:'Warren Buffett',cat:'people',val:150,flag:'reported',parent:'sec_people',
+    desc:'~$150B. Stepped down as Berkshire CEO Jan 2026; still its largest shareholder.',
+    src:'https://www.bloomberg.com/billionaires/profiles/warren-e-buffett/',srcName:'Bloomberg — Buffett'},
+  {id:'berkshire',label:'Berkshire Hathaway',cat:'finance',val:371,flag:'reported',parent:'buffett',
+    desc:'~$371B revenue — Buffett’s conglomerate (insurance, railroad, energy) plus a giant stock portfolio (Apple, banks, Coca-Cola).',
+    src:'https://www.berkshirehathaway.com/',srcName:'Berkshire Hathaway'},
+  {id:'gates',label:'Bill Gates',cat:'people',val:108,flag:'reported',parent:'sec_people',
+    desc:'~$108B. Microsoft co-founder — and the largest private owner of US FARMLAND.',
+    src:'https://www.bloomberg.com/billionaires/profiles/william-h-gates/',srcName:'Bloomberg — Gates'},
+  {id:'farmland',label:'US farmland (Gates)',cat:'agriculture',val:null,flag:'estimate',parent:'gates',
+    desc:'~242,000–275,000 acres across ~20 states via Cascade Investment — the largest private farmland holding in the US.',
+    src:'https://landreport.com/land-report-100/bill-gates',srcName:'Land Report — Gates farmland'},
+  {id:'ballmer',label:'Steve Ballmer',cat:'people',val:130,flag:'reported',parent:'sec_people',
+    desc:'~$130B. Microsoft’s largest individual shareholder (~4%); owns the LA Clippers.',
+    src:'https://www.bloomberg.com/billionaires/profiles/steven-a-ballmer/',srcName:'Bloomberg — Ballmer'},
+  {id:'waltons',label:'Walton family',cat:'people',val:450,flag:'reported',parent:'sec_people',
+    desc:'~$450B combined — the world’s richest family, owning ~45% of Walmart.',
+    src:'https://247wallst.com/investing/2026/01/16/walton-family-net-worth-rises-32-billion-this-year/',srcName:'Walton family net worth'},
+  {id:'walmart',label:'Walmart',cat:'people',val:681,flag:'reported',parent:'waltons',
+    desc:'$681B revenue FY2025 — the largest US company and the largest US pharmacy/retailer.',
+    src:'https://www.sec.gov/Archives/edgar/data/0000104169/000010416925000010/earningsreleasefy25q4.htm',srcName:'Walmart FY2025 (SEC)'},
+  {id:'schwarzman',label:'Stephen Schwarzman',cat:'people',val:48,flag:'reported',parent:'sec_people',
+    desc:'~$48B. Co-founder/CEO and ~19% owner of Blackstone.',
+    src:'https://www.bloomberg.com/billionaires/profiles/stephen-a-schwarzman/',srcName:'Bloomberg — Schwarzman'},
+  {id:'fink',label:'Larry Fink',cat:'people',val:1.3,flag:'reported',parent:'sec_people',
+    desc:'~$1.3B personally — but as CEO he DIRECTS ~$14T of BlackRock client money. The ultimate split between owning and controlling.',
+    src:'https://finbold.com/guide/larry-fink-net-worth-revealed/',srcName:'Larry Fink net worth'},
+  {id:'altman',label:'Sam Altman',cat:'people',val:2,flag:'estimate',parent:'sec_people',
+    desc:'~$2B (from outside investments). Runs OpenAI for a token salary with little/no equity — control without ownership.',
+    src:'https://fortune.com/2025/08/21/openai-billionaire-ceo-sam-altman-new-valuation-personal-finance-zero-equity-salary-investments/',srcName:'Fortune — Altman'},
+  {id:'dellp',label:'Michael Dell',cat:'people',val:150,flag:'estimate',parent:'sec_people',
+    desc:'~$150B+. Owns ~40%+ of Dell Technologies, now riding AI-server demand.',
+    src:'https://www.bloomberg.com/billionaires/profiles/michael-s-dell/',srcName:'Bloomberg — Dell'},
+  {id:'sacklers',label:'Sackler family',cat:'people',val:11,flag:'reported',parent:'sec_people',harm:true,
+    harmNote:'<b>Extracted before the reckoning.</b> The Sacklers pulled ~$10.7B out of Purdue Pharma as opioid scrutiny mounted, then settled for $7.4B (effective May 2026) admitting no wrongdoing — keeping much of the fortune built on OxyContin.',
+    desc:'~$11B family fortune, built on Purdue Pharma and OxyContin.',
+    src:'https://www.npr.org/2025/01/24/nx-s1-5272769/purdue-pharma-and-sackler-family-members-to-pay-7-4b-in-national-opioid-settlement',srcName:'NPR — Sackler $7.4B settlement'},
+  {id:'bigthree',label:'The “Big Three” own everything',cat:'people',val:null,flag:'estimate',parent:'sec_people',
+    desc:'BlackRock, Vanguard, and State Street together hold ~20–25% of the typical S&P 500 company and are the single largest shareholder of ~90% of them — an unprecedented concentration of corporate control in three firms.',
+    src:'https://theconversation.com/these-three-firms-own-corporate-america-77072',srcName:'The Conversation — Big Three'},
+  {id:'influence',label:'Political Influence',cat:'people',val:null,flag:'reported',parent:'sec_people',harm:true,
+    harmNote:'<b>Where money becomes rules.</b> The 2024 US election cost ~$15.9B; federal lobbying hit a record $4.4B in 2024 (health sector the biggest spender). Concentrated wealth converts directly into influence over the rules that govern it.',
+    desc:'The 2024 election (~$16B) and annual federal lobbying (~$4.4B) — the channel from money to power.',
+    src:'https://www.opensecrets.org/news/2025/02/federal-lobbying-set-new-record-in-2024/',srcName:'OpenSecrets — 2024 lobbying'},
+
+  // PEOPLE — more billionaires (net worth in $B; figures swing daily, flagged)
+  {id:'bloomberg',label:'Michael Bloomberg',cat:'people',val:109,flag:'estimate',parent:'sec_people',
+    desc:'~$109B. Owns ~88% of Bloomberg LP, the financial-data and media empire. Former NYC mayor and major political donor.',
+    src:'https://en.wikipedia.org/wiki/Michael_Bloomberg',srcName:'Michael Bloomberg'},
+  {id:'bloomberg_lp',label:'Bloomberg LP',cat:'finance',val:null,flag:'estimate',parent:'bloomberg',
+    desc:'The financial-data terminal that nearly every bank and fund pays for — ~$13B+ revenue, privately held.',
+    src:'https://en.wikipedia.org/wiki/Bloomberg_L.P.',srcName:'Bloomberg LP'},
+  {id:'powelljobs',label:'Laurene Powell Jobs',cat:'people',val:12,flag:'reported',parent:'sec_people',
+    desc:'~$12B. Inherited Apple and Disney stakes from Steve Jobs; runs Emerson Collective.',
+    src:'https://www.bloomberg.com/billionaires/profiles/laurene-p-jobs/',srcName:'Bloomberg — Powell Jobs'},
+  {id:'schmidt',label:'Eric Schmidt',cat:'people',val:45,flag:'estimate',parent:'sec_people',
+    desc:'~$35–64B (sources vary). Former Google/Alphabet CEO; now active in AI and defense-tech investing.',
+    src:'https://www.bloomberg.com/billionaires/profiles/eric-e-schmidt/',srcName:'Bloomberg — Schmidt'},
+  {id:'mackenzie',label:'MacKenzie Scott',cat:'people',val:42.7,flag:'reported',parent:'sec_people',
+    desc:'~$42.7B in Amazon stock (from her divorce from Bezos); has given away $26B+.',
+    src:'https://www.bloomberg.com/billionaires/profiles/mackenzie-scott/',srcName:'Bloomberg — Scott'},
+  {id:'moskovitz',label:'Dustin Moskovitz',cat:'people',val:14,flag:'estimate',parent:'sec_people',
+    desc:'~$14B. Facebook/Meta co-founder; co-founder of Asana.',
+    src:'https://www.bloomberg.com/billionaires/profiles/dustin-a-moskovitz/',srcName:'Bloomberg — Moskovitz'},
+  {id:'dorsey',label:'Jack Dorsey',cat:'people',val:5.9,flag:'reported',parent:'sec_people',
+    desc:'~$5.9B. Co-founder of Twitter and of Block (Square); ~8% of Block.',
+    src:'https://en.wikipedia.org/wiki/Jack_Dorsey',srcName:'Jack Dorsey'},
+  {id:'cuban',label:'Mark Cuban',cat:'people',val:6,flag:'reported',parent:'sec_people',
+    desc:'~$6B. Sold Broadcast.com to Yahoo in 1999; owns part of the Dallas Mavericks and Cost Plus Drugs.',
+    src:'https://www.bloomberg.com/billionaires/profiles/mark-cuban/',srcName:'Bloomberg — Cuban'},
+  {id:'murdoch',label:'Rupert Murdoch',cat:'people',val:22,flag:'reported',parent:'sec_people',
+    desc:'~$22B (family). Controls News Corp and Fox — one of the most powerful media empires; control consolidated under son Lachlan in 2025.',
+    src:'https://www.bloomberg.com/billionaires/profiles/keith-r-murdoch/',srcName:'Bloomberg — Murdoch'},
+  {id:'fox',label:'Fox / News Corp',cat:'people',val:null,flag:'reported',parent:'murdoch',
+    desc:'Fox News, the Wall Street Journal, the New York Post, and more — media reach as political power.',
+    src:'https://en.wikipedia.org/wiki/News_Corp',srcName:'News Corp'},
+  {id:'zhang',label:'Zhang Yiming',cat:'people',val:92.8,flag:'reported',parent:'sec_people',
+    desc:'~$92.8B — China’s richest. Founder of ByteDance, ~21% stake.',
+    src:'https://www.bloomberg.com/billionaires/profiles/yiming-zhang/',srcName:'Bloomberg — Zhang'},
+  {id:'bytedance',label:'ByteDance / TikTok',cat:'tech',val:null,flag:'estimate',parent:'zhang',
+    desc:'Owner of TikTok and Douyin — one of the world’s most valuable private companies, and a focus of US national-security fights.',
+    src:'https://en.wikipedia.org/wiki/ByteDance',srcName:'ByteDance'},
+  {id:'ponyma',label:'Ma Huateng (Pony Ma)',cat:'people',val:62,flag:'reported',parent:'sec_people',
+    desc:'~$62B. Founder of Tencent (WeChat, gaming) — ~7–8% stake.',
+    src:'https://www.bloomberg.com/billionaires/profiles/huateng-ma/',srcName:'Bloomberg — Pony Ma'},
+  {id:'jackma',label:'Jack Ma',cat:'people',val:29,flag:'reported',parent:'sec_people',
+    desc:'~$29B. Co-founder of Alibaba (~4%) and Ant Group.',
+    src:'https://www.bloomberg.com/billionaires/profiles/jack-y-ma/',srcName:'Bloomberg — Jack Ma'},
+  {id:'lisasu',label:'Lisa Su',cat:'people',val:1.5,flag:'estimate',parent:'sec_people',
+    desc:'~$1.5B. CEO of AMD — built her fortune via stock, not founding; Jensen Huang’s cousin.',
+    src:'https://finbold.com/guide/lisa-su-net-worth/',srcName:'Lisa Su net worth'},
+  {id:'hoffman',label:'Reid Hoffman',cat:'people',val:2.7,flag:'reported',parent:'sec_people',
+    desc:'~$2.7B. Co-founded LinkedIn (sold to Microsoft); early Facebook/Airbnb investor; OpenAI/AI backer.',
+    src:'https://en.wikipedia.org/wiki/Reid_Hoffman',srcName:'Reid Hoffman'},
+  {id:'omidyar',label:'Pierre Omidyar',cat:'people',val:11,flag:'estimate',parent:'sec_people',
+    desc:'~$11B. Founder of eBay.',
+    src:'https://www.bloomberg.com/billionaires/profiles/pierre-m-omidyar/',srcName:'Bloomberg — Omidyar'},
+
+  {id:'griffin',label:'Ken Griffin',cat:'people',val:48,flag:'reported',parent:'sec_people',
+    desc:'~$48B. Founder of Citadel (hedge fund) and Citadel Securities (the market-maker that handles a huge share of US retail stock trades).',
+    src:'https://www.bloomberg.com/billionaires/profiles/kenneth-c-griffin/',srcName:'Bloomberg — Griffin'},
+  {id:'citadel',label:'Citadel',cat:'finance',val:null,flag:'estimate',parent:'griffin',
+    desc:'A top hedge fund plus Citadel Securities, which executes a large share of all US retail equity trades — a hidden toll booth on the market.',
+    src:'https://en.wikipedia.org/wiki/Citadel_LLC',srcName:'Citadel'},
+  {id:'dimon',label:'Jamie Dimon',cat:'people',val:3,flag:'reported',parent:'sec_people',
+    desc:'~$3B. Chairman & CEO of JPMorgan Chase — a hired manager, not an owner, yet among the most powerful people in finance.',
+    src:'https://en.wikipedia.org/wiki/Jamie_Dimon',srcName:'Jamie Dimon'},
+  {id:'dalio',label:'Ray Dalio',cat:'people',val:21.5,flag:'reported',parent:'sec_people',
+    desc:'~$21.5B. Founder of Bridgewater, the world’s largest hedge fund.',
+    src:'https://www.bloomberg.com/billionaires/profiles/raymond-t-dalio/',srcName:'Bloomberg — Dalio'},
+  {id:'icahn',label:'Carl Icahn',cat:'people',val:5.5,flag:'estimate',parent:'sec_people',
+    desc:'~$5–6B (down sharply since 2023). The original corporate raider / activist investor.',
+    src:'https://www.bloomberg.com/billionaires/profiles/carl-c-icahn/',srcName:'Bloomberg — Icahn'},
+  {id:'ackman',label:'Bill Ackman',cat:'people',val:8,flag:'reported',parent:'sec_people',
+    desc:'~$8B. Founder of Pershing Square, an activist hedge fund.',
+    src:'https://www.bloomberg.com/billionaires/profiles/william-a-ackman/',srcName:'Bloomberg — Ackman'},
+  {id:'soros',label:'George Soros',cat:'people',val:7.2,flag:'estimate',parent:'sec_people',
+    desc:'~$7.2B (after giving ~$32B to his Open Society Foundations). Legendary, and politically polarizing, investor.',
+    src:'https://www.bloomberg.com/billionaires/profiles/george-soros/',srcName:'Bloomberg — Soros'},
+  {id:'abigail',label:'Abigail Johnson',cat:'people',val:40,flag:'estimate',parent:'sec_people',
+    desc:'~$35–47B. CEO and ~29% owner of Fidelity, one of the largest asset managers and 401(k) providers.',
+    src:'https://www.bloomberg.com/billionaires/profiles/abigail-p-johnson/',srcName:'Bloomberg — Johnson'},
+  {id:'schwab',label:'Charles Schwab (estate)',cat:'people',val:13.5,flag:'estimate',parent:'sec_people',
+    desc:'~$13.5B. Founder of the discount brokerage that bears his name (d. 2024); figure reflects the estate/family.',
+    src:'https://www.bloomberg.com/billionaires/profiles/charles-r-schwab/',srcName:'Bloomberg — Schwab'},
+  {id:'tepper',label:'David Tepper',cat:'people',val:11,flag:'reported',parent:'sec_people',
+    desc:'~$11B. Founder of Appaloosa Management; owns the Carolina Panthers.',
+    src:'https://en.wikipedia.org/wiki/David_Tepper',srcName:'David Tepper'},
+  {id:'cohen',label:'Steve Cohen',cat:'people',val:21.3,flag:'reported',parent:'sec_people',
+    desc:'~$21.3B. Founder of Point72; owns the New York Mets.',
+    src:'https://www.bloomberg.com/billionaires/profiles/steven-a-cohen/',srcName:'Bloomberg — Cohen'},
+  {id:'peterffy',label:'Thomas Peterffy',cat:'people',val:83,flag:'reported',parent:'sec_people',
+    desc:'~$83B. Founder of Interactive Brokers; a pioneer of electronic trading.',
+    src:'https://www.bloomberg.com/billionaires/profiles/thomas-peterffy/',srcName:'Bloomberg — Peterffy'},
+  {id:'yass',label:'Jeff Yass',cat:'people',val:59,flag:'reported',parent:'sec_people',
+    desc:'~$59B. Co-founder of Susquehanna (SIG), which holds a large stake in ByteDance/TikTok; major political donor.',
+    src:'https://www.bloomberg.com/billionaires/profiles/jeffrey-s-yass/',srcName:'Bloomberg — Yass'},
+
+  {id:'arnault',label:'Bernard Arnault',cat:'people',val:201,flag:'estimate',parent:'sec_people',
+    desc:'~$201B. Chairman of LVMH, the world’s largest luxury group (~48% controlled by his family).',
+    src:'https://www.bloomberg.com/billionaires/profiles/bernard-j-arnault/',srcName:'Bloomberg — Arnault'},
+  {id:'lvmh',label:'LVMH',cat:'people',val:null,flag:'reported',parent:'arnault',
+    desc:'Louis Vuitton, Dior, Tiffany, Moët, and ~75 luxury houses — the empire of aspirational spending.',
+    src:'https://en.wikipedia.org/wiki/LVMH',srcName:'LVMH'},
+  {id:'ortega',label:'Amancio Ortega',cat:'people',val:124,flag:'estimate',parent:'sec_people',
+    desc:'~$124B. Founder of Inditex (Zara), ~59% stake; now also a giant real-estate owner.',
+    src:'https://www.bloomberg.com/billionaires/profiles/amancio-ortega-gaona/',srcName:'Bloomberg — Ortega'},
+  {id:'inditex',label:'Inditex / Zara',cat:'people',val:null,flag:'reported',parent:'ortega',
+    desc:'The fast-fashion giant behind Zara — speed-to-shelf clothing at global scale.',
+    src:'https://en.wikipedia.org/wiki/Inditex',srcName:'Inditex'},
+  {id:'bettencourt',label:'F. Bettencourt Meyers',cat:'people',val:98,flag:'estimate',parent:'sec_people',
+    desc:'~$98B — the world’s richest woman. Family owns ~33% of L’Oréal.',
+    src:'https://www.bloomberg.com/billionaires/profiles/francoise-bettencourt-meyers/',srcName:'Bloomberg — Bettencourt Meyers'},
+  {id:'loreal',label:'L’Oréal',cat:'people',val:null,flag:'reported',parent:'bettencourt',
+    desc:'The world’s largest cosmetics company.',
+    src:'https://en.wikipedia.org/wiki/L%27Or%C3%A9al',srcName:'L’Oréal'},
+  {id:'marsfamily',label:'Mars family',cat:'people',val:120,flag:'estimate',parent:'sec_people',
+    desc:'~$110–130B combined. Own 100% of Mars Inc — M&Ms, Snickers, and a giant pet-food/vet business.',
+    src:'https://www.celebritynetworth.com/richest-businessmen/richest-billionaires/mars-family-net-worth/',srcName:'Mars family net worth'},
+  {id:'mars_inc',label:'Mars Inc',cat:'people',val:null,flag:'estimate',parent:'marsfamily',
+    desc:'Candy (M&Ms, Snickers) plus the largest pet-care/veterinary business in the world — privately held.',
+    src:'https://en.wikipedia.org/wiki/Mars,_Incorporated',srcName:'Mars Inc'},
+  {id:'knight',label:'Phil Knight',cat:'people',val:35,flag:'estimate',parent:'sec_people',
+    desc:'~$35B. Co-founder of Nike.',
+    src:'https://www.bloomberg.com/billionaires/profiles/philip-h-knight/',srcName:'Bloomberg — Knight'},
+  {id:'schultz',label:'Howard Schultz',cat:'people',val:4,flag:'estimate',parent:'sec_people',
+    desc:'~$4B. Built Starbucks into a global chain; its largest individual shareholder.',
+    src:'https://www.celebritynetworth.com/richest-businessmen/ceos/howard-schultz-net-worth/',srcName:'Howard Schultz net worth'},
+  {id:'ferrero',label:'Giovanni Ferrero',cat:'people',val:48,flag:'estimate',parent:'sec_people',
+    desc:'~$48B. Chairman of Ferrero (Nutella, Kinder, Ferrero Rocher), family-controlled.',
+    src:'https://www.bloomberg.com/billionaires/profiles/giovanni-ferrero/',srcName:'Bloomberg — Ferrero'},
+  {id:'koch',label:'Charles Koch',cat:'people',val:70.5,flag:'reported',parent:'sec_people',
+    desc:'~$70.5B. Controls Koch Industries (~38%) — one of the largest private US firms — and a vast political-donor network.',
+    src:'https://www.bloomberg.com/billionaires/profiles/charles-d-koch/',srcName:'Bloomberg — Koch'},
+  {id:'koch_ind',label:'Koch Industries',cat:'energy',val:null,flag:'estimate',parent:'koch',
+    desc:'>$125B revenue — oil refining, chemicals, pipelines, paper (Georgia-Pacific). Privately held and politically influential.',
+    src:'https://en.wikipedia.org/wiki/Koch,_Inc.',srcName:'Koch Industries'},
+  {id:'hamm',label:'Harold Hamm',cat:'people',val:16,flag:'estimate',parent:'sec_people',
+    desc:'~$16B. Founder of Continental Resources, a shale-oil pioneer (taken private in 2022).',
+    src:'https://www.bloomberg.com/billionaires/profiles/harold-g-hamm/',srcName:'Bloomberg — Hamm'},
+  {id:'ambani',label:'Mukesh Ambani',cat:'people',val:86,flag:'reported',parent:'sec_people',
+    desc:'~$86B — among Asia’s richest. Chairman and ~42% owner of Reliance Industries (oil, telecom, retail).',
+    src:'https://www.bloomberg.com/billionaires/profiles/mukesh-d-ambani/',srcName:'Bloomberg — Ambani'},
+  {id:'reliance',label:'Reliance Industries',cat:'energy',val:null,flag:'reported',parent:'ambani',
+    desc:'India’s largest company — oil refining, the Jio telecom network, and retail.',
+    src:'https://en.wikipedia.org/wiki/Reliance_Industries',srcName:'Reliance Industries'},
+  {id:'adani',label:'Gautam Adani',cat:'people',val:92.6,flag:'estimate',parent:'sec_people',
+    desc:'~$92.6B. Chairman of the Adani Group — ports, power, airports, cement, renewables.',
+    src:'https://www.bloomberg.com/billionaires/profiles/gautam-s-adani/',srcName:'Bloomberg — Adani'},
+
+  // PACs / political committees (children of Political Influence), colored by lean
+  {id:'pac_america',label:'America PAC',cat:'pac',lean:'maga',val:null,flag:'reported',parent:'influence',
+    desc:'Pro-Trump super PAC created and funded by Elon Musk; ran the Republican 2024 ground game (~$260M).',
+    src:'https://www.opensecrets.org/political-action-committees-pacs/america-pac/C00879510/summary/2024',srcName:'OpenSecrets — America PAC'},
+  {id:'pac_maga',label:'MAGA Inc',cat:'pac',lean:'maga',val:null,flag:'reported',parent:'influence',
+    desc:'Make America Great Again Inc — the primary pro-Trump super PAC.',
+    src:'https://www.opensecrets.org/political-action-committees-pacs/make-america-great-again-inc/C00825851/summary/2024',srcName:'OpenSecrets — MAGA Inc'},
+  {id:'inaugural',label:'Trump 2025 Inaugural Fund',cat:'pac',lean:'maga',val:null,flag:'reported',parent:'influence',
+    desc:'Record ~$245M inaugural fund; many corporations (Amazon, Meta, etc.) gave $1M each after the 2024 election.',
+    src:'https://www.npr.org/2024/12/13/nx-s1-5227874/trump-bezos-zuckerberg-amazon-facebook-open-ai-meta-inauguration-fund',srcName:'NPR — Trump inaugural donors'},
+  {id:'pac_slf',label:'Senate Leadership Fund',cat:'pac',lean:'republican',val:null,flag:'reported',parent:'influence',
+    desc:'GOP establishment super PAC that works to elect Republican US Senators (McConnell-aligned).',
+    src:'https://www.opensecrets.org/political-action-committees-pacs/senate-leadership-fund/C00571703/summary/2024',srcName:'OpenSecrets — Senate Leadership Fund'},
+  {id:'pac_clf',label:'Congressional Leadership Fund',cat:'pac',lean:'republican',val:null,flag:'reported',parent:'influence',
+    desc:'GOP establishment super PAC for electing House Republicans.',
+    src:'https://www.opensecrets.org/political-action-committees-pacs/congressional-leadership-fund/C00504530/summary/2024',srcName:'OpenSecrets — CLF'},
+  {id:'pac_club',label:'Club for Growth Action',cat:'pac',lean:'republican',val:null,flag:'reported',parent:'influence',
+    desc:'Anti-tax, fiscally-conservative super PAC (plus its School Freedom Fund affiliate for school vouchers).',
+    src:'https://www.opensecrets.org/political-action-committees-pacs/club-for-growth-action/C00487470/summary/2024',srcName:'OpenSecrets — Club for Growth Action'},
+  {id:'pac_afp',label:'Americans for Prosperity',cat:'pac',lean:'libertarian',val:null,flag:'reported',parent:'influence',
+    desc:'The Koch network’s flagship hybrid PAC — libertarian-leaning Republican. Backed Nikki Haley and spent against Trump in the 2024 primary.',
+    src:'https://www.opensecrets.org/news/2024/08/koch-network-flagship-super-pac-pours-big-money-into-2024-elections/',srcName:'OpenSecrets — AFP Action'},
+  {id:'pac_oppmatters',label:'Opportunity Matters (Tim Scott)',cat:'pac',lean:'republican',val:null,flag:'reported',parent:'influence',
+    desc:'Super PAC that backed Sen. Tim Scott’s Republican presidential bid — Larry Ellison’s main political vehicle.',
+    src:'https://www.cnbc.com/2023/05/22/larry-ellison-tim-scott-presidential-campaign.html',srcName:'CNBC — Opportunity Matters Fund'},
+  {id:'pac_sfa',label:'SFA Fund (Nikki Haley)',cat:'pac',lean:'republican',val:null,flag:'reported',parent:'influence',
+    desc:'Super PAC backing Nikki Haley’s anti-Trump Republican primary run — drew money from both GOP and some anti-Trump Democrats.',
+    src:'https://www.washingtonpost.com/politics/2023/12/05/haley-superpac-donation-reid-hoffman/',srcName:'WaPo — SFA Fund'},
+  {id:'pac_ff',label:'Future Forward USA',cat:'pac',lean:'democrat',val:null,flag:'reported',parent:'influence',
+    desc:'The main Democratic super PAC backing Biden then Harris in 2024 (~$559M cycle).',
+    src:'https://www.opensecrets.org/political-action-committees-pacs/future-forward-usa/C00669259/summary/2024',srcName:'OpenSecrets — Future Forward'},
+  {id:'pac_hmp',label:'House/Senate Majority PAC',cat:'pac',lean:'democrat',val:null,flag:'reported',parent:'influence',
+    desc:'The Democratic leadership super PACs for House and Senate races (Jeffries/Schumer-aligned).',
+    src:'https://www.opensecrets.org/political-action-committees-pacs/house-majority-pac/C00501197/summary/2024',srcName:'OpenSecrets — House Majority PAC'},
+  {id:'pac_democracy',label:'Democracy PAC (Soros)',cat:'pac',lean:'democrat',val:null,flag:'reported',parent:'influence',
+    desc:'George Soros’s conduit super PACs that fund Democratic-aligned committees and causes.',
+    src:'https://www.factcheck.org/2024/09/democracy-pac-democracy-pac-ii-2/',srcName:'FactCheck — Democracy PAC'},
+  {id:'pac_independence',label:'Independence USA PAC',cat:'pac',lean:'democrat',val:null,flag:'reported',parent:'influence',
+    desc:'Michael Bloomberg’s own super PAC — branded independent (guns/climate/education) but in recent cycles funds almost only Democrats.',
+    src:'https://www.opensecrets.org/political-action-committees-pacs/independence-usa-pac/C00547349/summary/2024',srcName:'OpenSecrets — Independence USA'},
+  {id:'pac_withhonor',label:'With Honor Fund',cat:'pac',lean:'bipartisan',val:null,flag:'reported',parent:'influence',
+    desc:'A genuinely cross-partisan super PAC that backs military veterans of both parties — Jeff Bezos gave $10M.',
+    src:'https://money.com/jeff-bezos-just-made-a-10-million-political-donation-heres-where-the-worlds-richest-man-is-putting-his-money/',srcName:'Money.com — With Honor'},
+];
+
+const LINKS = [
+  // sources -> government / sectors
+  {s:'taxpayers',t:'gov',v:5235,type:'flow',note:'Federal taxes'},
+  {s:'investors',t:'gov',v:null,type:'flow',note:'Buying Treasury bonds'},
+  {s:'gov',t:'bondholders',v:1028,type:'interest',note:'Net interest on the debt'},
+  {s:'gov',t:'socsec',v:1569,type:'flow'},
+  {s:'gov',t:'va',v:377,type:'flow'},
+  {s:'gov',t:'sec_defense',v:464,type:'flow',note:'Defense contracts'},
+  {s:'gov',t:'sec_health',v:1660,type:'flow',note:'Medicare $992B + Medicaid $668B'},
+  {s:'consumers',t:'sec_health',v:1500,type:'flow',note:'Private insurance + out-of-pocket'},
+  {s:'consumers',t:'sec_tech',v:900,type:'flow',note:'Ads, devices, subscriptions, cloud'},
+  {s:'consumers',t:'sec_harm',v:280,type:'flow',note:'Betting, nicotine, packaged food'},
+  {s:'investors',t:'sec_finance',v:null,type:'flow',note:'Savings, pensions, 401(k)s'},
+
+  // the highlighted example
+  {s:'gov',t:'spacex',v:3.8,type:'flow',note:'Tax-funded NASA + DoD contracts',highlight:true},
+
+  // defense sector -> companies
+  {s:'sec_defense',t:'lockheed',v:71,type:'flow'},
+  {s:'sec_defense',t:'rtx',v:80.7,type:'flow'},
+  {s:'sec_defense',t:'boeing',v:23.9,type:'flow'},
+  {s:'sec_defense',t:'gd',v:47.7,type:'flow'},
+  {s:'sec_defense',t:'northrop',v:41,type:'flow'},
+  {s:'sec_defense',t:'spacex',v:3.8,type:'flow'},
+  {s:'sec_defense',t:'palantir',v:1.2,type:'flow'},
+  {s:'sec_defense',t:'boozallen',v:10.7,type:'flow'},
+  {s:'spacex',t:'starlink',v:13,type:'flow',note:'DoD/NRO programs (ceilings)'},
+  {s:'spacex',t:'spacex_suppliers',v:null,type:'flow',note:'Materials, avionics (undisclosed)'},
+
+  // health sector -> companies
+  {s:'sec_health',t:'unitedhealth',v:400.3,type:'flow'},
+  {s:'sec_health',t:'cvs',v:372.8,type:'flow'},
+  {s:'sec_health',t:'pbm',v:null,type:'flow'},
+  {s:'sec_health',t:'pe_hosp',v:null,type:'flow'},
+  {s:'sec_health',t:'glp1',v:70,type:'flow'},
+
+  // tech sector -> companies
+  {s:'sec_tech',t:'microsoft',v:190,type:'flow'},
+  {s:'sec_tech',t:'amazon',v:200,type:'flow'},
+  {s:'sec_tech',t:'alphabet',v:190,type:'flow'},
+  {s:'sec_tech',t:'meta',v:135,type:'flow'},
+  {s:'sec_tech',t:'nvidia',v:326,type:'flow'},
+  {s:'sec_tech',t:'openai',v:20,type:'flow'},
+  {s:'sec_tech',t:'anthropic',v:30,type:'flow'},
+  {s:'sec_tech',t:'utilities',v:1400,type:'flow'},
+  // hyperscalers buy from Nvidia
+  {s:'microsoft',t:'nvidia',v:null,type:'flow',note:'GPU purchases'},
+  {s:'amazon',t:'nvidia',v:null,type:'flow',note:'GPU purchases'},
+  {s:'alphabet',t:'nvidia',v:null,type:'flow',note:'GPU purchases'},
+  {s:'meta',t:'nvidia',v:null,type:'flow',note:'GPU purchases'},
+  {s:'openai',t:'nvidia',v:null,type:'flow',note:'Compute (via clouds)'},
+  // Nvidia -> fabs
+  {s:'nvidia',t:'tsmc',v:122,type:'flow',note:'Chip fabrication'},
+  {s:'nvidia',t:'asml',v:38,type:'flow',note:'(TSMC buys ASML machines)'},
+  {s:'microsoft',t:'openai',v:135,type:'flow',note:'~27% stake / compute',highlight:false},
+
+  // finance sector -> firms
+  {s:'sec_finance',t:'blackrock',v:14000,type:'flow'},
+  {s:'sec_finance',t:'vanguard',v:12000,type:'flow'},
+  {s:'sec_finance',t:'statestreet',v:5700,type:'flow'},
+  {s:'sec_finance',t:'jpmorgan',v:3460,type:'flow'},
+  {s:'sec_finance',t:'buybacks',v:942,type:'flow'},
+  {s:'sec_finance',t:'pe',v:17500,type:'flow'},
+
+  // harm sector -> firms
+  {s:'sec_harm',t:'betting',v:16.96,type:'flow'},
+  {s:'sec_harm',t:'tobacco',v:90,type:'flow'},
+  {s:'sec_harm',t:'upf',v:230,type:'flow'},
+
+  // ownership layer (dashed) — the Big Three own everything
+  {s:'blackrock',t:'lockheed',v:null,type:'own',note:'Major shareholder'},
+  {s:'blackrock',t:'nvidia',v:null,type:'own',note:'Major shareholder'},
+  {s:'blackrock',t:'unitedhealth',v:null,type:'own',note:'Major shareholder'},
+  {s:'blackrock',t:'meta',v:null,type:'own',note:'Major shareholder'},
+  {s:'blackrock',t:'tobacco',v:null,type:'own',note:'Major shareholder'},
+  {s:'vanguard',t:'nvidia',v:null,type:'own',note:'Major shareholder'},
+  {s:'vanguard',t:'lockheed',v:null,type:'own',note:'Major shareholder'},
+  {s:'bondholders',t:'blackrock',v:null,type:'own',note:'Holds federal debt'},
+  {s:'pe',t:'pe_hosp',v:null,type:'own',note:'Owns the facilities'},
+
+  // defense — second tier
+  {s:'sec_defense',t:'l3harris',v:21.3,type:'flow'},
+  {s:'sec_defense',t:'leidos',v:16.7,type:'flow'},
+  {s:'sec_defense',t:'saic',v:7.5,type:'flow'},
+  {s:'sec_defense',t:'caci',v:8.63,type:'flow'},
+  {s:'sec_defense',t:'amentum',v:13.9,type:'flow'},
+  {s:'sec_defense',t:'anduril',v:1,type:'flow'},
+  {s:'sec_defense',t:'blueorigin',v:2.4,type:'flow',note:'NSSL Lane 2 + Artemis'},
+  {s:'sec_defense',t:'ula',v:5.4,type:'flow',note:'NSSL Lane 2 (ceiling)'},
+  {s:'sec_defense',t:'bae',v:13.6,type:'flow'},
+  {s:'sec_defense',t:'honeywell',v:15,type:'flow'},
+
+  // healthcare — second tier + tax money into private insurers
+  {s:'sec_health',t:'centene',v:163.1,type:'flow'},
+  {s:'sec_health',t:'elevance',v:175.2,type:'flow'},
+  {s:'sec_health',t:'humana',v:117.8,type:'flow'},
+  {s:'sec_health',t:'hca',v:70.6,type:'flow'},
+  {s:'sec_health',t:'distributors',v:880,type:'flow'},
+  {s:'sec_health',t:'moderna',v:3.2,type:'flow'},
+  {s:'gov',t:'humana',v:null,type:'flow',note:'Medicare Advantage payments',highlight:true},
+  {s:'gov',t:'centene',v:null,type:'flow',note:'Medicaid managed care',highlight:true},
+  {s:'gov',t:'moderna',v:null,type:'flow',note:'Operation Warp Speed funding'},
+
+  // tech — AI supply chain
+  {s:'sec_tech',t:'oracle',v:57.4,type:'flow'},
+  {s:'sec_tech',t:'broadcom',v:64,type:'flow'},
+  {s:'sec_tech',t:'amd',v:34.6,type:'flow'},
+  {s:'sec_tech',t:'coreweave',v:5.13,type:'flow'},
+  {s:'sec_tech',t:'dell',v:25,type:'flow'},
+  {s:'sec_tech',t:'supermicro',v:40,type:'flow'},
+  {s:'nvidia',t:'memory',v:35,type:'flow',note:'HBM stacked on every GPU'},
+  {s:'openai',t:'oracle',v:300,type:'flow',note:'Stargate compute (5-yr ceiling)'},
+  {s:'microsoft',t:'coreweave',v:null,type:'flow',note:'67% of CoreWeave revenue'},
+  {s:'openai',t:'coreweave',v:22,type:'flow',note:'Compute commitment'},
+  {s:'coreweave',t:'nvidia',v:null,type:'flow',note:'GPU purchases'},
+  {s:'dell',t:'nvidia',v:null,type:'flow',note:'GPUs for servers'},
+  {s:'supermicro',t:'nvidia',v:null,type:'flow',note:'GPUs for servers'},
+  {s:'broadcom',t:'tsmc',v:null,type:'flow',note:'Chip fabrication'},
+  {s:'amd',t:'tsmc',v:null,type:'flow',note:'Chip fabrication'},
+  // government cloud into Big Tech (JWCC $9B)
+  {s:'gov',t:'microsoft',v:null,type:'flow',note:'JWCC military cloud ($9B split)'},
+  {s:'gov',t:'amazon',v:null,type:'flow',note:'JWCC military cloud ($9B split)'},
+  {s:'gov',t:'oracle',v:null,type:'flow',note:'JWCC military cloud ($9B split)'},
+
+  // harm — company tier
+  {s:'betting',t:'draftkings',v:6.05,type:'flow'},
+  {s:'betting',t:'fanduel',v:5.3,type:'flow'},
+  {s:'tobacco',t:'altria',v:20.4,type:'flow'},
+  {s:'tobacco',t:'pmi',v:37.9,type:'flow'},
+  {s:'upf',t:'nestle',v:103,type:'flow'},
+  {s:'upf',t:'pepsico',v:91.9,type:'flow'},
+  {s:'upf',t:'mondelez',v:36.4,type:'flow'},
+
+  // more ownership threads
+  {s:'blackrock',t:'oracle',v:null,type:'own',note:'Major shareholder'},
+  {s:'vanguard',t:'humana',v:null,type:'own',note:'Major shareholder'},
+
+  // energy
+  {s:'sec_energy',t:'exxon',v:349.6,type:'flow'},
+  {s:'sec_energy',t:'chevron',v:193.4,type:'flow'},
+  {s:'sec_energy',t:'conoco',v:58.6,type:'flow'},
+  {s:'sec_energy',t:'shell',v:284.3,type:'flow'},
+  {s:'sec_energy',t:'nextera',v:24.75,type:'flow'},
+  {s:'sec_energy',t:'constellation',v:23.57,type:'flow'},
+  {s:'sec_energy',t:'talen',v:null,type:'flow'},
+  {s:'sec_energy',t:'gevernova',v:34.9,type:'flow'},
+  {s:'consumers',t:'sec_energy',v:null,type:'flow',note:'Fuel & electricity bills'},
+  {s:'microsoft',t:'constellation',v:null,type:'flow',note:'Three Mile Island restart (835 MW)'},
+  {s:'amazon',t:'talen',v:null,type:'flow',note:'1,920 MW nuclear PPA'},
+  {s:'utilities',t:'gevernova',v:null,type:'flow',note:'Gas turbines & grid'},
+  {s:'utilities',t:'constellation',v:null,type:'flow',note:'Nuclear generation'},
+
+  // pharma + PBM vertical integration
+  {s:'sec_health',t:'pfizer',v:63.6,type:'flow'},
+  {s:'sec_health',t:'jnj',v:88.8,type:'flow'},
+  {s:'sec_health',t:'merck',v:64.2,type:'flow'},
+  {s:'sec_health',t:'abbvie',v:56.3,type:'flow'},
+  {s:'sec_health',t:'walgreens',v:147.7,type:'flow'},
+  {s:'sec_health',t:'cigna',v:247,type:'flow'},
+  {s:'cvs',t:'pbm',v:null,type:'own',note:'Owns CVS Caremark'},
+  {s:'unitedhealth',t:'pbm',v:null,type:'own',note:'Owns OptumRx'},
+  {s:'cigna',t:'pbm',v:null,type:'own',note:'Owns Express Scripts'},
+
+  // semiconductor equipment & materials
+  {s:'tsmc',t:'applied_materials',v:27.18,type:'flow'},
+  {s:'tsmc',t:'lam',v:14.91,type:'flow'},
+  {s:'tsmc',t:'kla',v:9.81,type:'flow'},
+  {s:'tsmc',t:'tokyo_electron',v:16.2,type:'flow'},
+  {s:'tsmc',t:'asml',v:null,type:'flow',note:'EUV machines'},
+  {s:'asml',t:'zeiss',v:null,type:'flow',note:'Sole EUV optics'},
+  {s:'asml',t:'cymer',v:null,type:'flow',note:'EUV light source'},
+  {s:'tsmc',t:'rareearth',v:null,type:'flow',note:'Critical minerals'},
+  {s:'tsmc',t:'photoresist',v:null,type:'flow',note:'EUV photoresist'},
+
+  // finance — private capital + housing
+  {s:'sec_finance',t:'blackstone',v:1242,type:'flow'},
+  {s:'sec_finance',t:'apollo',v:938,type:'flow'},
+  {s:'sec_finance',t:'kkr',v:744,type:'flow'},
+  {s:'sec_finance',t:'carlyle',v:477,type:'flow'},
+  {s:'blackstone',t:'sec_realestate',v:null,type:'own',note:'Largest corporate landlord'},
+  {s:'consumers',t:'sec_realestate',v:null,type:'flow',note:'Rent'},
+  {s:'pe',t:'sec_realestate',v:null,type:'own',note:'Private capital buys housing'},
+
+  // who holds the debt
+  {s:'bondholders',t:'japan_debt',v:1185,type:'interest'},
+  {s:'bondholders',t:'uk_debt',v:863,type:'interest'},
+  {s:'bondholders',t:'china_debt',v:684,type:'interest'},
+  {s:'bondholders',t:'fed_holdings',v:3800,type:'interest'},
+  {s:'bondholders',t:'domestic_debt',v:17000,type:'interest'},
+  {s:'bondholders',t:'ss_trust',v:2400,type:'interest'},
+  {s:'domestic_debt',t:'blackrock',v:null,type:'own',note:'Held via index funds'},
+
+  // agriculture
+  {s:'sec_agri',t:'cargill',v:154,type:'flow'},
+  {s:'sec_agri',t:'adm',v:80.3,type:'flow'},
+  {s:'sec_agri',t:'bayer',v:50,type:'flow'},
+  {s:'sec_agri',t:'tyson',v:54.4,type:'flow'},
+  {s:'sec_agri',t:'deere',v:45.7,type:'flow'},
+  {s:'consumers',t:'sec_agri',v:null,type:'flow',note:'Food spending'},
+  {s:'sec_agri',t:'upf',v:null,type:'flow',note:'Commodities into packaged food'},
+
+  // people — wealth + control links
+  {s:'sec_people',t:'musk',v:700,type:'flow'},
+  {s:'sec_people',t:'bezos',v:284,type:'flow'},
+  {s:'sec_people',t:'zuckerberg',v:220,type:'flow'},
+  {s:'sec_people',t:'ellison',v:258,type:'flow'},
+  {s:'sec_people',t:'huang',v:180,type:'flow'},
+  {s:'sec_people',t:'pagebrin',v:570,type:'flow'},
+  {s:'sec_people',t:'buffett',v:150,type:'flow'},
+  {s:'sec_people',t:'gates',v:108,type:'flow'},
+  {s:'sec_people',t:'ballmer',v:130,type:'flow'},
+  {s:'sec_people',t:'waltons',v:450,type:'flow'},
+  {s:'sec_people',t:'schwarzman',v:48,type:'flow'},
+  {s:'sec_people',t:'fink',v:1.3,type:'flow'},
+  {s:'sec_people',t:'altman',v:2,type:'flow'},
+  {s:'sec_people',t:'dellp',v:150,type:'flow'},
+  {s:'sec_people',t:'sacklers',v:11,type:'flow'},
+  {s:'sec_people',t:'bigthree',v:null,type:'flow'},
+  {s:'sec_people',t:'influence',v:null,type:'flow'},
+  {s:'musk',t:'spacex',v:null,type:'control',note:'~42% + majority voting'},
+  {s:'musk',t:'influence',v:null,type:'control',note:'~$290M, 2024 election'},
+  {s:'xai',t:'nvidia',v:null,type:'flow',note:'GPU purchases (Colossus)'},
+  {s:'bezos',t:'amazon',v:null,type:'control',note:'~8%'},
+  {s:'bezos',t:'blueorigin',v:null,type:'control',note:'Sole owner'},
+  {s:'zuckerberg',t:'meta',v:null,type:'control',note:'~61% voting power'},
+  {s:'ellison',t:'oracle',v:null,type:'control',note:'~41%'},
+  {s:'huang',t:'nvidia',v:null,type:'control',note:'~3.6%'},
+  {s:'pagebrin',t:'alphabet',v:null,type:'control',note:'~51% voting power'},
+  {s:'gates',t:'microsoft',v:null,type:'control',note:'Co-founder'},
+  {s:'ballmer',t:'microsoft',v:null,type:'control',note:'Largest individual holder ~4%'},
+  {s:'schwarzman',t:'blackstone',v:null,type:'control',note:'~19%'},
+  {s:'fink',t:'blackrock',v:null,type:'control',note:'CEO; directs ~$14T'},
+  {s:'altman',t:'openai',v:null,type:'control',note:'CEO, ~no equity'},
+  {s:'dellp',t:'dell',v:null,type:'control',note:'~40%+'},
+  {s:'bigthree',t:'blackrock',v:null,type:'control'},
+  {s:'bigthree',t:'vanguard',v:null,type:'control'},
+  {s:'bigthree',t:'statestreet',v:null,type:'control'},
+
+  // more billionaires -> people hub
+  {s:'sec_people',t:'bloomberg',v:109,type:'flow'},
+  {s:'sec_people',t:'powelljobs',v:12,type:'flow'},
+  {s:'sec_people',t:'schmidt',v:45,type:'flow'},
+  {s:'sec_people',t:'mackenzie',v:42.7,type:'flow'},
+  {s:'sec_people',t:'moskovitz',v:14,type:'flow'},
+  {s:'sec_people',t:'dorsey',v:5.9,type:'flow'},
+  {s:'sec_people',t:'cuban',v:6,type:'flow'},
+  {s:'sec_people',t:'murdoch',v:22,type:'flow'},
+  {s:'sec_people',t:'zhang',v:92.8,type:'flow'},
+  {s:'sec_people',t:'ponyma',v:62,type:'flow'},
+  {s:'sec_people',t:'jackma',v:29,type:'flow'},
+  {s:'sec_people',t:'lisasu',v:1.5,type:'flow'},
+  {s:'sec_people',t:'hoffman',v:2.7,type:'flow'},
+  {s:'sec_people',t:'omidyar',v:11,type:'flow'},
+  {s:'sec_people',t:'griffin',v:48,type:'flow'},
+  {s:'sec_people',t:'dimon',v:3,type:'flow'},
+  {s:'sec_people',t:'dalio',v:21.5,type:'flow'},
+  {s:'sec_people',t:'icahn',v:5.5,type:'flow'},
+  {s:'sec_people',t:'ackman',v:8,type:'flow'},
+  {s:'sec_people',t:'soros',v:7.2,type:'flow'},
+  {s:'sec_people',t:'abigail',v:40,type:'flow'},
+  {s:'sec_people',t:'schwab',v:13.5,type:'flow'},
+  {s:'sec_people',t:'tepper',v:11,type:'flow'},
+  {s:'sec_people',t:'cohen',v:21.3,type:'flow'},
+  {s:'sec_people',t:'peterffy',v:83,type:'flow'},
+  {s:'sec_people',t:'yass',v:59,type:'flow'},
+  {s:'sec_people',t:'arnault',v:201,type:'flow'},
+  {s:'sec_people',t:'ortega',v:124,type:'flow'},
+  {s:'sec_people',t:'bettencourt',v:98,type:'flow'},
+  {s:'sec_people',t:'marsfamily',v:120,type:'flow'},
+  {s:'sec_people',t:'knight',v:35,type:'flow'},
+  {s:'sec_people',t:'schultz',v:4,type:'flow'},
+  {s:'sec_people',t:'ferrero',v:48,type:'flow'},
+  {s:'sec_people',t:'koch',v:70.5,type:'flow'},
+  {s:'sec_people',t:'hamm',v:16,type:'flow'},
+  {s:'sec_people',t:'ambani',v:86,type:'flow'},
+  {s:'sec_people',t:'adani',v:92.6,type:'flow'},
+
+  // control links to companies already on the map
+  {s:'schmidt',t:'alphabet',v:null,type:'control',note:'Former CEO; ~1%'},
+  {s:'mackenzie',t:'amazon',v:null,type:'control',note:'~1.3% (ex-wife of Bezos)'},
+  {s:'moskovitz',t:'meta',v:null,type:'control',note:'Co-founder'},
+  {s:'dimon',t:'jpmorgan',v:null,type:'control',note:'Chairman & CEO'},
+  {s:'lisasu',t:'amd',v:null,type:'control',note:'CEO'},
+  {s:'abigail',t:'buybacks',v:null,type:'control',note:'Fidelity — major fund manager'},
+  {s:'yass',t:'bytedance',v:null,type:'control',note:'Large stake via Susquehanna'},
+  {s:'hoffman',t:'microsoft',v:null,type:'control',note:'Sold LinkedIn to Microsoft'},
+
+  // political donations (person -> PAC), colored by recipient lean
+  {s:'musk',t:'pac_america',type:'donation',lean:'maga',note:'~$238M (2024); also $20.5M RBG PAC'},
+  {s:'hamm',t:'pac_maga',type:'donation',lean:'maga',note:'~$1.6M to aid Trump; Continental $1M to MAGA Inc'},
+  {s:'schwarzman',t:'pac_maga',type:'donation',lean:'maga',note:'~$40M to GOP causes in 2024'},
+  {s:'ellison',t:'pac_oppmatters',type:'donation',lean:'republican',note:'~$30M+ (backed Sen. Tim Scott — not Trump)'},
+  {s:'griffin',t:'pac_slf',type:'donation',lean:'republican',note:'~$30M'},
+  {s:'griffin',t:'pac_clf',type:'donation',lean:'republican',note:'~$15M'},
+  {s:'yass',t:'pac_club',type:'donation',lean:'republican',note:'~$19M (+$10M School Freedom Fund)'},
+  {s:'koch',t:'pac_afp',type:'donation',lean:'libertarian',note:'Network ~$62M; backed Haley, opposed Trump in primary'},
+  {s:'murdoch',t:'pac_slf',type:'donation',lean:'republican',note:'$2M personal (2024)'},
+  {s:'tepper',t:'pac_sfa',type:'donation',lean:'republican',note:'~$4.2M (Haley; anti-Trump GOP)'},
+  {s:'ackman',t:'pac_sfa',type:'donation',lean:'republican',note:'Backed Haley, then endorsed Trump in 2024'},
+  {s:'peterffy',t:'pac_clf',type:'donation',lean:'republican',note:'>$7M to GOP campaigns (aggregate)'},
+  {s:'waltons',t:'pac_clf',type:'donation',lean:'republican',note:'GOP-favored >5:1; mostly via issue PACs'},
+  {s:'bloomberg',t:'pac_ff',type:'donation',lean:'democrat',note:'~$50M (pro-Harris)'},
+  {s:'bloomberg',t:'pac_hmp',type:'donation',lean:'democrat',note:'$10M (House Majority PAC)'},
+  {s:'bloomberg',t:'pac_independence',type:'donation',lean:'democrat',note:'His own super PAC'},
+  {s:'soros',t:'pac_democracy',type:'donation',lean:'democrat',note:'~$60M+ via Fund for Policy Reform'},
+  {s:'moskovitz',t:'pac_ff',type:'donation',lean:'democrat',note:'~$38M (pro-Harris)'},
+  {s:'gates',t:'pac_ff',type:'donation',lean:'democrat',note:'~$50M (pro-Harris; otherwise nonpartisan)'},
+  {s:'hoffman',t:'pac_ff',type:'donation',lean:'democrat',note:'~$10M (pro-Harris)'},
+  {s:'hoffman',t:'pac_sfa',type:'donation',lean:'republican',note:'$250K to Haley (anti-Trump)'},
+  {s:'powelljobs',t:'pac_ff',type:'donation',lean:'democrat',note:'>$1M to Biden/Harris'},
+  {s:'cohen',t:'pac_hmp',type:'donation',lean:'democrat',note:'~$300K (DCCC + Jeffries fund)'},
+  {s:'bezos',t:'pac_withhonor',type:'donation',lean:'bipartisan',note:'$10M (cross-partisan veterans)'},
+  {s:'bezos',t:'inaugural',type:'donation',lean:'maga',note:'$1M via Amazon (2025)'},
+  {s:'zuckerberg',t:'inaugural',type:'donation',lean:'maga',note:'$1M via Meta (2025). NB: 2020 "Zuckerbucks" were nonpartisan election admin'},
+];
+
+// ---------- ENGINE ----------
+const CAT_COLOR = {source:'#64748b',government:'#2563eb',defense:'#6366f1',health:'#10b981',tech:'#a855f7',finance:'#f59e0b',harm:'#ef4444',energy:'#0ea5e9',agriculture:'#84cc16',realestate:'#fb923c',people:'#ec4899',pac:'#9ca3af'};
+// political lean palette (used for PAC nodes and donation flows)
+const LEAN_COLOR = {maga:'#7f1d1d',republican:'#dc2626',libertarian:'#d97706',bipartisan:'#9ca3af',democrat:'#2563eb',progressive:'#7c3aed',nonpolitical:'#475569',unclear:'#475569',na:'#334155'};
+const LEAN_LABEL = {maga:'MAGA / Trump-aligned',republican:'Republican / Conservative',libertarian:'Libertarian',bipartisan:'Bipartisan / Mixed',democrat:'Democratic',progressive:'Progressive',nonpolitical:'Not a major donor',unclear:'Unclear',na:'Foreign national (no US giving)'};
+// documented political lean of each person (from public FEC/OpenSecrets giving; see node sources)
+const LEAN = {
+  musk:'maga',hamm:'maga',
+  ellison:'republican',waltons:'republican',schwarzman:'republican',griffin:'republican',peterffy:'republican',yass:'republican',tepper:'republican',schwab:'republican',icahn:'republican',murdoch:'republican',
+  koch:'libertarian',
+  bloomberg:'democrat',soros:'democrat',hoffman:'democrat',moskovitz:'democrat',schultz:'democrat',powelljobs:'democrat',schmidt:'democrat',cohen:'democrat',buffett:'democrat',gates:'democrat',omidyar:'democrat',altman:'democrat',
+  bezos:'bipartisan',dimon:'bipartisan',knight:'bipartisan',cuban:'bipartisan',ackman:'bipartisan',fink:'bipartisan',dellp:'bipartisan',
+  zuckerberg:'nonpolitical',huang:'nonpolitical',ballmer:'nonpolitical',mackenzie:'nonpolitical',lisasu:'nonpolitical',abigail:'nonpolitical',dalio:'nonpolitical',dorsey:'nonpolitical',pagebrin:'nonpolitical',marsfamily:'nonpolitical',sacklers:'nonpolitical',
+  arnault:'na',ortega:'na',bettencourt:'na',ferrero:'na',ambani:'na',adani:'na',zhang:'na',ponyma:'na',jackma:'na'
+};
+function nodeFill(d){
+  if(d.cat==='pac') return LEAN_COLOR[d.lean]||'#9ca3af';
+  if(leanMode && LEAN[d.id]) return LEAN_COLOR[LEAN[d.id]];
+  return CAT_COLOR[d.cat];
+}
+const byId = Object.fromEntries(NODES.map(n=>[n.id,n]));
+NODES.forEach(n=>{ n.children = NODES.filter(m=>m.parent===n.id).map(m=>m.id); });
+const roots = NODES.filter(n=>!n.parent).map(n=>n.id);
+let expanded = new Set();            // ids whose children are revealed
+let activeCat = 'all';
+let harmMode = false;
+let leanMode = false;
+let selected = null;
+
+const fmt = v => v==null ? '—' : (v>=1000 ? '$'+(v/1000).toFixed(v>=10000?1:2)+'T' : '$'+(v<10?v.toFixed(1):Math.round(v))+'B');
+
+const graphEl = document.getElementById('graph');
+const tooltip = document.getElementById('tooltip');
+let W = graphEl.clientWidth, H = graphEl.clientHeight;
+const svg = d3.select('#graph').append('svg').attr('viewBox',[0,0,W,H]);
+svg.append('defs').selectAll('marker').data(['flow','own','interest','hl','control','donation'])
+  .join('marker').attr('id',d=>'arr-'+d).attr('viewBox','0 -5 10 10').attr('refX',22)
+  .attr('refY',0).attr('markerWidth',6).attr('markerHeight',6).attr('orient','auto')
+  .append('path').attr('d','M0,-5L10,0L0,5')
+  .attr('fill',d=>d==='own'?'#f59e0b':d==='interest'?'#ef4444':d==='hl'?'#6ea8fe':d==='control'?'#ec4899':d==='donation'?'#9ca3af':'#41557f');
+
+const g = svg.append('g');
+const linkG = g.append('g');
+const nodeG = g.append('g');
+const zoom = d3.zoom().scaleExtent([0.3,3]).on('zoom',e=>g.attr('transform',e.transform));
+svg.call(zoom);
+
+const rScale = d3.scaleSqrt().domain([1,22000]).range([7,46]);
+const radius = n => n.val==null ? 11 : rScale(Math.max(1,n.val));
+
+const sim = d3.forceSimulation()
+  .force('link', d3.forceLink().id(d=>d.id).distance(l=>l.type==='own'?150:90).strength(0.25))
+  .force('charge', d3.forceManyBody().strength(-460))
+  .force('collide', d3.forceCollide().radius(n=>radius(n)+10))
+  .force('x', d3.forceX(W/2).strength(0.04))
+  .force('y', d3.forceY(H/2).strength(0.06))
+  .on('tick', ticked);
+
+function visibleNodes(){
+  const vis = new Set(roots);
+  expanded.forEach(id=>{ if(vis.has(id)) byId[id].children.forEach(c=>vis.add(c)); });
+  // allow multi-level: keep expanding revealed nodes
+  let changed=true;
+  while(changed){ changed=false;
+    expanded.forEach(id=>{ if(vis.has(id)) byId[id].children.forEach(c=>{ if(!vis.has(c)){vis.add(c);changed=true;} }); });
+  }
+  let arr=[...vis].map(id=>byId[id]);
+  if(activeCat!=='all') arr=arr.filter(n=>n.cat===activeCat||n.cat==='source'||n.cat==='government');
+  return arr;
+}
+
+let nodeSel, linkSel;
+function restart(){
+  const vNodes = visibleNodes();
+  const visIds = new Set(vNodes.map(n=>n.id));
+  const vLinks = LINKS.filter(l=>visIds.has(l.s)&&visIds.has(l.t)).map(l=>({...l,source:l.s,target:l.t}));
+
+  linkSel = linkG.selectAll('line').data(vLinks,d=>d.s+'>'+d.t)
+    .join('line').attr('class','link')
+    .attr('stroke',d=>d.highlight?'#6ea8fe':d.type==='own'?'#f59e0b':d.type==='interest'?'#ef4444':d.type==='control'?'#ec4899':d.type==='donation'?(LEAN_COLOR[d.lean]||'#9ca3af'):'#41557f')
+    .attr('stroke-width',d=>d.highlight?2.6:d.type==='donation'?1.8:d.type==='own'||d.type==='control'?1.1:Math.max(1,Math.min(6,(d.v?Math.log10(d.v+1):1))))
+    .attr('stroke-dasharray',d=>d.type==='own'?'4 4':d.type==='control'?'2 3':null)
+    .attr('opacity',d=>d.type==='donation'?0.85:d.type==='own'||d.type==='control'?0.55:0.75)
+    .attr('marker-end',d=>'url(#arr-'+(d.highlight?'hl':d.type)+')')
+    .on('mouseover',(e,d)=>showTip(e,(byId[d.s].label+' → '+byId[d.t].label)+(d.v?' · '+fmt(d.v):'')+(d.note?'<br><span style=\"color:#93a0bd\">'+d.note+'</span>':'')))
+    .on('mousemove',moveTip).on('mouseout',hideTip);
+
+  nodeSel = nodeG.selectAll('g.node').data(vNodes,d=>d.id)
+    .join(enter=>{
+      const gg=enter.append('g').attr('class','node').call(drag(sim));
+      gg.append('circle');
+      gg.append('circle').attr('class','ring');
+      gg.append('text').attr('text-anchor','middle');
+      return gg;
+    });
+  nodeSel.select('circle:not(.ring)')
+    .attr('r',radius)
+    .attr('fill',nodeFill)
+    .attr('stroke',d=>d3.color(nodeFill(d)).brighter(0.7))
+    .attr('opacity',0.92)
+    .on('click',(e,d)=>{ e.stopPropagation(); toggle(d); select(d); })
+    .on('mouseover',(e,d)=>showTip(e,'<b>'+d.label+'</b>'+(d.val!=null?' · '+fmt(d.val):'')+(d.children.length?'<br><span style=\"color:#6ea8fe\">click to '+(expanded.has(d.id)?'collapse':'expand '+d.children.length+' →')+'</span>':'')))
+    .on('mousemove',moveTip).on('mouseout',hideTip);
+  nodeSel.select('.ring')
+    .attr('r',d=>radius(d)+4)
+    .attr('display',d=>d.harm?null:'none');
+  nodeSel.select('text')
+    .attr('dy',d=>radius(d)+13)
+    .text(d=>d.label.length>22?d.label.slice(0,21)+'…':d.label);
+
+  applyHarmDim();
+  sim.nodes(vNodes);
+  sim.force('link').links(vLinks);
+  sim.alpha(0.7).restart();
+}
+
+function toggle(d){
+  if(!d.children.length) return;
+  if(expanded.has(d.id)){
+    // collapse this and any descendants
+    const stack=[d.id];
+    while(stack.length){ const id=stack.pop(); expanded.delete(id); byId[id].children.forEach(c=>stack.push(c)); }
+  } else expanded.add(d.id);
+  restart();
+}
+
+function select(d){
+  selected=d.id;
+  document.getElementById('hint').style.display='none';
+  const det=document.getElementById('detail'); det.style.display='block';
+  const inLinks=LINKS.filter(l=>l.t===d.id), outLinks=LINKS.filter(l=>l.s===d.id);
+  const flowRow=(l,dir)=>{
+    const other=dir==='in'?byId[l.s]:byId[l.t];
+    return `<div class="flowrow" data-go="${other.id}"><span>${dir==='in'?'◀ ':'▶ '}${other.label}</span><span class="amt">${l.v?fmt(l.v):(l.type==='own'?'owns':'—')}</span></div>`;
+  };
+  det.innerHTML = `
+    <h2>${d.label}</h2>
+    <div class="cat" style="color:${CAT_COLOR[d.cat]}">${d.cat==='source'?'Source of capital':d.cat==='government'?'Government':d.cat==='pac'?'Political committee':d.cat==='people'?'Owner / controller':d.cat+' sector'}</div>
+    ${(d.lean||LEAN[d.id])?`<div class="cat" style="color:${LEAN_COLOR[d.lean||LEAN[d.id]]}">⚖ ${LEAN_LABEL[d.lean||LEAN[d.id]]}</div>`:''}
+    ${d.val!=null?`<div class="figure">${fmt(d.val)}</div>`:''}
+    <span class="flag ${d.flag}">${({reported:'Reported figure',estimate:'Estimate',guidance:'Company guidance',ceiling:'Contract ceiling'})[d.flag]}</span>
+    <div class="desc">${d.desc}</div>
+    ${d.harm?`<div class="harm">${d.harmNote}</div>`:''}
+    ${d.children.length?`<button class="btn" style="margin:4px 0" onclick="window.__toggle('${d.id}')">${expanded.has(d.id)?'Collapse':'Expand '+d.children.length+' inside'}</button>`:''}
+    <div class="flows">
+      ${inLinks.length?'<h3>Money in</h3>'+inLinks.map(l=>flowRow(l,'in')).join(''):''}
+      ${outLinks.length?'<h3>Money out</h3>'+outLinks.map(l=>flowRow(l,'out')).join(''):''}
+    </div>
+    <div class="src">Source: <a href="${d.src}" target="_blank" rel="noopener">${d.srcName} ↗</a></div>`;
+  det.querySelectorAll('.flowrow').forEach(r=>r.addEventListener('click',()=>{
+    const go=byId[r.dataset.go];
+    // ensure visible by expanding parents
+    let p=go.parent; const chain=[]; while(p){chain.push(p);p=byId[p].parent;}
+    chain.reverse().forEach(id=>expanded.add(id));
+    restart(); setTimeout(()=>{ if(byId[go.id]) select(byId[go.id]); highlightConnections(go.id); },50);
+  }));
+  highlightConnections(d.id);
+}
+window.__toggle=id=>{ toggle(byId[id]); select(byId[id]); };
+
+function highlightConnections(id){
+  const connected=new Set([id]);
+  LINKS.forEach(l=>{ if(l.s===id)connected.add(l.t); if(l.t===id)connected.add(l.s); });
+  if(harmMode||leanMode) return; // overlay mode takes precedence
+  nodeSel && nodeSel.classed('dim',d=>!connected.has(d.id));
+  linkSel && linkSel.classed('dim',d=>!(d.s===id||d.t===id));
+}
+
+function recolor(){
+  if(!nodeSel) return;
+  nodeSel.select('circle:not(.ring)').attr('fill',nodeFill).attr('stroke',d=>d3.color(nodeFill(d)).brighter(0.7));
+}
+function applyHarmDim(){
+  if(!nodeSel) return;
+  recolor();
+  if(harmMode){
+    nodeSel.classed('dim',d=>!d.harm);
+    linkSel.classed('dim',d=>!byId[d.t].harm);
+  } else if(leanMode){
+    nodeSel.classed('dim',d=>!(d.cat==='pac'||LEAN[d.id]));
+    linkSel.classed('dim',d=>d.type!=='donation');
+  } else {
+    nodeSel.classed('dim',false); linkSel.classed('dim',false);
+    if(selected) highlightConnections(selected);
+  }
+}
+
+function ticked(){
+  linkSel && linkSel.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+  nodeSel && nodeSel.attr('transform',d=>`translate(${d.x},${d.y})`);
+}
+function drag(sim){
+  return d3.drag()
+    .on('start',(e,d)=>{ if(!e.active)sim.alphaTarget(0.3).restart(); d.fx=d.x; d.fy=d.y; })
+    .on('drag',(e,d)=>{ d.fx=e.x; d.fy=e.y; })
+    .on('end',(e,d)=>{ if(!e.active)sim.alphaTarget(0); d.fx=null; d.fy=null; });
+}
+function showTip(e,html){ tooltip.innerHTML=html; tooltip.style.opacity=1; moveTip(e); }
+function moveTip(e){ const r=graphEl.getBoundingClientRect(); tooltip.style.left=(e.clientX-r.left+14)+'px'; tooltip.style.top=(e.clientY-r.top+10)+'px'; }
+function hideTip(){ tooltip.style.opacity=0; }
+
+// controls
+document.querySelectorAll('.filter').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.filter').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); activeCat=b.dataset.cat; restart();
+}));
+document.getElementById('harmToggle').addEventListener('click',function(){
+  harmMode=!harmMode; if(harmMode){leanMode=false;document.getElementById('leanToggle').classList.remove('active');}
+  this.classList.toggle('active',harmMode); applyHarmDim();
+});
+document.getElementById('leanToggle').addEventListener('click',function(){
+  leanMode=!leanMode; if(leanMode){harmMode=false;document.getElementById('harmToggle').classList.remove('active');
+    if(!expanded.has('sec_people'))expanded.add('sec_people'); if(!expanded.has('influence'))expanded.add('influence'); restart();}
+  this.classList.toggle('active',leanMode); applyHarmDim();
+});
+document.getElementById('expandAll').addEventListener('click',()=>{ NODES.forEach(n=>{ if(n.children.length)expanded.add(n.id); }); restart(); });
+document.getElementById('collapseAll').addEventListener('click',()=>{ expanded.clear(); selected=null; document.getElementById('detail').style.display='none'; document.getElementById('hint').style.display='block'; restart(); });
+document.getElementById('resetZoom').addEventListener('click',()=>svg.transition().duration(500).call(zoom.transform,d3.zoomIdentity));
+svg.on('click',()=>{ if(!harmMode){ nodeSel&&nodeSel.classed('dim',false); linkSel&&linkSel.classed('dim',false);} });
+document.getElementById('search').addEventListener('input',function(){
+  const q=this.value.toLowerCase().trim(); if(!q)return;
+  const hit=NODES.find(n=>n.label.toLowerCase().includes(q));
+  if(hit){ let p=hit.parent;const chain=[];while(p){chain.push(p);p=byId[p].parent;} chain.forEach(id=>expanded.add(id)); restart(); setTimeout(()=>select(hit),60); }
+});
+window.addEventListener('resize',()=>{ W=graphEl.clientWidth;H=graphEl.clientHeight; svg.attr('viewBox',[0,0,W,H]); sim.force('x',d3.forceX(W/2).strength(0.04)); sim.force('y',d3.forceY(H/2).strength(0.06)); sim.alpha(0.4).restart(); });
+
+restart();
+</script>
+</body>
+</html>
