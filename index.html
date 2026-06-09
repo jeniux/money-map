@@ -85,6 +85,7 @@
     <button class="btn filter" data-cat="people"><span class="chip"><span class="dot" style="background:#ec4899"></span>People</span></button>
     <button class="btn filter" data-cat="pac"><span class="chip"><span class="dot" style="background:#9ca3af"></span>PACs</span></button>
     <button class="btn filter" data-cat="influencer"><span class="chip"><span class="dot" style="background:#22d3ee"></span>Media/Influencers</span></button>
+    <button class="btn filter" data-cat="court"><span class="chip"><span class="dot" style="background:#fbbf24"></span>Supreme Court</span></button>
     <span class="sep"></span>
     <button class="btn" id="harmToggle">⚠ Harm overlay</button>
     <button class="btn" id="leanToggle">⚖ Political lean</button>
@@ -859,6 +860,53 @@ const NODES = [
   {id:'bernie_marcus',label:'Bernie Marcus',cat:'people',val:null,flag:'estimate',parent:'sec_people',
     desc:'Home Depot co-founder (d. 2024). His Marcus Foundation was a steady backer of both PragerU and Turning Point USA.',
     src:'https://www.insidephilanthropy.com/home/looking-back-at-bernie-marcus-giving-and-whats-next',srcName:'Inside Philanthropy — Marcus'},
+
+  // SUPREME COURT — justices, the confirmation machines, and Leonard Leo
+  {id:'sec_court',label:'Supreme Court',cat:'court',val:null,flag:'reported',
+    desc:'The nine US Supreme Court justices. Unlike elected offices, their nominations are pushed by 501(c)(4) "dark money" advocacy groups — NOT PACs — that run ad campaigns without disclosing donors. "Lean" here is the common characterization of each justice’s judicial bloc, not a partisan registration; some justices break from their bloc.',
+    src:'https://www.supremecourt.gov/about/biographies.aspx',srcName:'Supreme Court — Current Members'},
+  {id:'roberts',label:'John Roberts (Chief)',cat:'court',val:null,flag:'reported',parent:'sec_court',
+    desc:'Chief Justice, appointed by George W. Bush (2005). Conservative, but the institutionalist median who sometimes sides with the liberals.',
+    src:'https://en.wikipedia.org/wiki/John_Roberts',srcName:'John Roberts'},
+  {id:'thomas',label:'Clarence Thomas',cat:'court',val:null,flag:'reported',parent:'sec_court',
+    desc:'Appointed by George H.W. Bush (1991). The Court’s most consistently conservative member.',
+    src:'https://en.wikipedia.org/wiki/Clarence_Thomas',srcName:'Clarence Thomas'},
+  {id:'alito',label:'Samuel Alito',cat:'court',val:null,flag:'reported',parent:'sec_court',
+    desc:'Appointed by George W. Bush (2006). Reliably conservative; author of the Dobbs opinion.',
+    src:'https://en.wikipedia.org/wiki/Samuel_Alito',srcName:'Samuel Alito'},
+  {id:'sotomayor',label:'Sonia Sotomayor',cat:'court',val:null,flag:'reported',parent:'sec_court',
+    desc:'Appointed by Barack Obama (2009). Part of the Court’s liberal bloc.',
+    src:'https://en.wikipedia.org/wiki/Sonia_Sotomayor',srcName:'Sonia Sotomayor'},
+  {id:'kagan',label:'Elena Kagan',cat:'court',val:null,flag:'reported',parent:'sec_court',
+    desc:'Appointed by Barack Obama (2010). Liberal bloc; a pragmatic coalition-builder.',
+    src:'https://en.wikipedia.org/wiki/Elena_Kagan',srcName:'Elena Kagan'},
+  {id:'gorsuch',label:'Neil Gorsuch',cat:'court',val:null,flag:'reported',parent:'sec_court',
+    desc:'Appointed by Donald Trump (2017) to the seat held open after Scalia’s death. Conservative, with a libertarian streak.',
+    src:'https://en.wikipedia.org/wiki/Neil_Gorsuch',srcName:'Neil Gorsuch'},
+  {id:'kavanaugh',label:'Brett Kavanaugh',cat:'court',val:null,flag:'reported',parent:'sec_court',
+    desc:'Appointed by Donald Trump (2018) after a contentious confirmation. Conservative, often near the Court’s median.',
+    src:'https://en.wikipedia.org/wiki/Brett_Kavanaugh',srcName:'Brett Kavanaugh'},
+  {id:'barrett',label:'Amy Coney Barrett',cat:'court',val:null,flag:'reported',parent:'sec_court',
+    desc:'Appointed by Donald Trump (2020) to replace Ruth Bader Ginsburg. Conservative, but has occasionally broken from the bloc.',
+    src:'https://en.wikipedia.org/wiki/Amy_Coney_Barrett',srcName:'Amy Coney Barrett'},
+  {id:'jackson',label:'Ketanji Brown Jackson',cat:'court',val:null,flag:'reported',parent:'sec_court',
+    desc:'Appointed by Joe Biden (2022); the first Black woman on the Court. Liberal bloc.',
+    src:'https://en.wikipedia.org/wiki/Ketanji_Brown_Jackson',srcName:'Ketanji Brown Jackson'},
+  {id:'concord',label:'Judicial Crisis Network / Concord Fund',cat:'court',val:null,flag:'reported',parent:'sec_court',
+    desc:'The leading conservative judicial-confirmation group (president Carrie Severino, a former Thomas clerk). Spent $25M+ backing Trump’s three justices; raised ~$48M in one year — donors undisclosed.',
+    src:'https://www.citizensforethics.org/reports-investigations/crew-investigations/group-behind-trump-scotus-picks-brought-in-nearly-50-million-in-secret-money/',srcName:'CREW — Concord Fund dark money'},
+  {id:'fed_society',label:'Federalist Society',cat:'court',val:null,flag:'reported',parent:'sec_court',
+    desc:'The conservative legal network that vets and recommends judicial nominees — the pipeline behind Republican Supreme Court picks.',
+    src:'https://en.wikipedia.org/wiki/Federalist_Society',srcName:'Federalist Society'},
+  {id:'leonard_leo',label:'Leonard Leo',cat:'court',val:null,flag:'reported',parent:'sec_court',
+    desc:'The operative who built the conservative judicial machine (Federalist Society, Concord Fund) and steers a vast donor network — including a $1.6B gift from Barre Seid to his Marble Freedom Trust in 2022, the largest known political donation in US history.',
+    src:'https://en.wikipedia.org/wiki/Leonard_Leo',srcName:'Leonard Leo'},
+  {id:'demand_justice',label:'Demand Justice',cat:'court',val:null,flag:'reported',parent:'sec_court',
+    desc:'The main progressive judicial-advocacy group (launched 2018, via the Sixteen Thirty Fund dark-money network). Backed Jackson; campaigned against Kavanaugh and Barrett.',
+    src:'https://en.wikipedia.org/wiki/Demand_Justice',srcName:'Demand Justice'},
+  {id:'alliance_justice',label:'Alliance for Justice',cat:'court',val:null,flag:'reported',parent:'sec_court',
+    desc:'Long-running liberal judicial-advocacy coalition that backs Democratic nominees.',
+    src:'https://en.wikipedia.org/wiki/Alliance_for_Justice',srcName:'Alliance for Justice'},
 ];
 
 const LINKS = [
@@ -1202,10 +1250,37 @@ const LINKS = [
   {s:'bernie_marcus',t:'prageru',type:'donation',lean:'republican',note:'Marcus Foundation backer'},
   {s:'bernie_marcus',t:'tpusa',type:'donation',lean:'republican',note:'Marcus Foundation (~$72.5K disclosed)'},
   {s:'uihlein',t:'tpusa',type:'donation',lean:'republican',note:'Uihlein Family Foundation (~$275K disclosed)'},
+
+  // Supreme Court: hub -> justices
+  {s:'sec_court',t:'roberts',type:'flow'},
+  {s:'sec_court',t:'thomas',type:'flow'},
+  {s:'sec_court',t:'alito',type:'flow'},
+  {s:'sec_court',t:'sotomayor',type:'flow'},
+  {s:'sec_court',t:'kagan',type:'flow'},
+  {s:'sec_court',t:'gorsuch',type:'flow'},
+  {s:'sec_court',t:'kavanaugh',type:'flow'},
+  {s:'sec_court',t:'barrett',type:'flow'},
+  {s:'sec_court',t:'jackson',type:'flow'},
+  // confirmation machines -> the justices they backed (lean-colored)
+  {s:'concord',t:'gorsuch',type:'donation',lean:'republican',note:'~$10M ad campaign'},
+  {s:'concord',t:'kavanaugh',type:'donation',lean:'republican',note:'$4.5M+ in ads'},
+  {s:'concord',t:'barrett',type:'donation',lean:'republican',note:'Multimillion campaign'},
+  {s:'concord',t:'roberts',type:'donation',lean:'republican',note:'Backed as Judicial Confirmation Network (2005)'},
+  {s:'concord',t:'alito',type:'donation',lean:'republican',note:'Backed as Judicial Confirmation Network (2006)'},
+  {s:'fed_society',t:'gorsuch',type:'donation',lean:'republican',note:'Federalist Society pipeline'},
+  {s:'fed_society',t:'kavanaugh',type:'donation',lean:'republican',note:'Federalist Society pipeline'},
+  {s:'fed_society',t:'barrett',type:'donation',lean:'republican',note:'Federalist Society pipeline'},
+  {s:'demand_justice',t:'jackson',type:'donation',lean:'democrat',note:'Backed confirmation'},
+  {s:'alliance_justice',t:'sotomayor',type:'donation',lean:'democrat',note:'Backed confirmation'},
+  {s:'alliance_justice',t:'kagan',type:'donation',lean:'democrat',note:'Backed confirmation'},
+  {s:'alliance_justice',t:'jackson',type:'donation',lean:'democrat',note:'Backed confirmation'},
+  // Leonard Leo runs the conservative machine
+  {s:'leonard_leo',t:'concord',type:'control',note:'Architect / steers the funding'},
+  {s:'leonard_leo',t:'fed_society',type:'control',note:'Co-chairman / longtime leader'},
 ];
 
 // ---------- ENGINE ----------
-const CAT_COLOR = {source:'#64748b',government:'#2563eb',defense:'#6366f1',health:'#10b981',tech:'#a855f7',finance:'#f59e0b',harm:'#ef4444',energy:'#0ea5e9',agriculture:'#84cc16',realestate:'#fb923c',people:'#ec4899',pac:'#9ca3af',influencer:'#22d3ee'};
+const CAT_COLOR = {source:'#64748b',government:'#2563eb',defense:'#6366f1',health:'#10b981',tech:'#a855f7',finance:'#f59e0b',harm:'#ef4444',energy:'#0ea5e9',agriculture:'#84cc16',realestate:'#fb923c',people:'#ec4899',pac:'#9ca3af',influencer:'#22d3ee',court:'#fbbf24'};
 // political lean palette (used for PAC nodes and donation flows)
 const LEAN_COLOR = {maga:'#7f1d1d',republican:'#dc2626',libertarian:'#d97706',bipartisan:'#9ca3af',democrat:'#2563eb',progressive:'#7c3aed',nonpolitical:'#475569',unclear:'#475569',na:'#334155'};
 const LEAN_LABEL = {maga:'MAGA / Trump-aligned',republican:'Republican / Conservative',libertarian:'Libertarian',bipartisan:'Bipartisan / Mixed',democrat:'Democratic',progressive:'Progressive',nonpolitical:'Not a major donor',unclear:'Unclear',na:'Foreign national (no US giving)'};
@@ -1220,7 +1295,10 @@ const LEAN = {
   arnault:'na',ortega:'na',bettencourt:'na',ferrero:'na',ambani:'na',adani:'na',zhang:'na',ponyma:'na',jackma:'na',
   tim_pool:'maga',benny_johnson:'maga',dave_rubin:'republican',lauren_southern:'republican',sisson:'democrat',
   tpusa:'republican',prageru:'republican',trump_creators:'maga',courier:'democrat',harris_creators:'democrat',waytowin:'democrat',priorities:'democrat',meidas:'democrat',tenet:'na',
-  wilks:'republican',uihlein:'republican',bernie_marcus:'republican'
+  wilks:'republican',uihlein:'republican',bernie_marcus:'republican',
+  roberts:'republican',thomas:'republican',alito:'republican',gorsuch:'republican',kavanaugh:'republican',barrett:'republican',
+  sotomayor:'democrat',kagan:'democrat',jackson:'democrat',
+  concord:'republican',fed_society:'republican',leonard_leo:'republican',demand_justice:'democrat',alliance_justice:'democrat'
 };
 function nodeFill(d){
   if(d.cat==='pac') return LEAN_COLOR[d.lean]||'#9ca3af';
