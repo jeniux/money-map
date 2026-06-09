@@ -848,6 +848,17 @@ const NODES = [
   {id:'sisson',label:'Harry Sisson',cat:'influencer',val:null,flag:'estimate',parent:'sec_media',
     desc:'Democratic creator. DOCUMENTED: his employer Palette Management got $210K from the DNC (FEC), and he personally received ~$6K from MeidasTouch PAC. He DENIES taking money from the Democratic Party to post, and Axios described him as an unpaid creator — so the direct "paid to post" claim is contested.',
     src:'https://www.opensecrets.org/campaign-expenditures/vendor?cycle=2024&vendor=Sisson%2C+Harry',srcName:'OpenSecrets / FEC — Sisson'},
+
+  // conservative donors behind the right-leaning outlets (answers "who funds them")
+  {id:'wilks',label:'Wilks Brothers',cat:'people',val:null,flag:'estimate',parent:'sec_people',
+    desc:'Dan & Farris Wilks — Texas fracking billionaires (~$5B combined). Early PragerU funders (~$8M+); two family members sit on its board.',
+    src:'https://www.insidephilanthropy.com/home/backed-by-conservative-funders-prageru-may-soon-offer-lessons-at-a-school-near-you',srcName:'Inside Philanthropy — PragerU funders'},
+  {id:'uihlein',label:'Dick Uihlein',cat:'people',val:null,flag:'estimate',parent:'sec_people',
+    desc:'Uline shipping magnate; one of the largest conservative megadonors. His family foundation funds Turning Point USA.',
+    src:'https://www.influencewatch.org/non-profit/turning-point-usa/',srcName:'InfluenceWatch — TPUSA donors'},
+  {id:'bernie_marcus',label:'Bernie Marcus',cat:'people',val:null,flag:'estimate',parent:'sec_people',
+    desc:'Home Depot co-founder (d. 2024). His Marcus Foundation was a steady backer of both PragerU and Turning Point USA.',
+    src:'https://www.insidephilanthropy.com/home/looking-back-at-bernie-marcus-giving-and-whats-next',srcName:'Inside Philanthropy — Marcus'},
 ];
 
 const LINKS = [
@@ -1174,6 +1185,23 @@ const LINKS = [
   {s:'hoffman',t:'courier',type:'donation',lean:'democrat',note:'Led the seed funding'},
   {s:'soros',t:'courier',type:'donation',lean:'democrat',note:'~$15M via a Soros-linked fund'},
   {s:'powelljobs',t:'courier',type:'donation',lean:'democrat',note:'Cited as an early backer'},
+
+  // connect the media hub to each funder/outlet so the cluster reads as one map
+  {s:'sec_media',t:'tenet',type:'flow',note:'RT/Russia-funded front'},
+  {s:'sec_media',t:'tpusa',type:'flow'},
+  {s:'sec_media',t:'prageru',type:'flow'},
+  {s:'sec_media',t:'trump_creators',type:'flow'},
+  {s:'sec_media',t:'courier',type:'flow'},
+  {s:'sec_media',t:'harris_creators',type:'flow'},
+  {s:'sec_media',t:'waytowin',type:'flow'},
+  {s:'sec_media',t:'priorities',type:'flow'},
+  {s:'sec_media',t:'meidas',type:'flow'},
+  {s:'sec_media',t:'sisson',type:'flow'},
+  // documented donors -> right-leaning outlets
+  {s:'wilks',t:'prageru',type:'donation',lean:'republican',note:'~$8M+ early funding'},
+  {s:'bernie_marcus',t:'prageru',type:'donation',lean:'republican',note:'Marcus Foundation backer'},
+  {s:'bernie_marcus',t:'tpusa',type:'donation',lean:'republican',note:'Marcus Foundation (~$72.5K disclosed)'},
+  {s:'uihlein',t:'tpusa',type:'donation',lean:'republican',note:'Uihlein Family Foundation (~$275K disclosed)'},
 ];
 
 // ---------- ENGINE ----------
@@ -1191,7 +1219,8 @@ const LEAN = {
   zuckerberg:'nonpolitical',huang:'nonpolitical',ballmer:'nonpolitical',mackenzie:'nonpolitical',lisasu:'nonpolitical',abigail:'nonpolitical',dalio:'nonpolitical',dorsey:'nonpolitical',pagebrin:'nonpolitical',marsfamily:'nonpolitical',sacklers:'nonpolitical',
   arnault:'na',ortega:'na',bettencourt:'na',ferrero:'na',ambani:'na',adani:'na',zhang:'na',ponyma:'na',jackma:'na',
   tim_pool:'maga',benny_johnson:'maga',dave_rubin:'republican',lauren_southern:'republican',sisson:'democrat',
-  tpusa:'republican',prageru:'republican',trump_creators:'maga',courier:'democrat',harris_creators:'democrat',waytowin:'democrat',priorities:'democrat',meidas:'democrat',tenet:'na'
+  tpusa:'republican',prageru:'republican',trump_creators:'maga',courier:'democrat',harris_creators:'democrat',waytowin:'democrat',priorities:'democrat',meidas:'democrat',tenet:'na',
+  wilks:'republican',uihlein:'republican',bernie_marcus:'republican'
 };
 function nodeFill(d){
   if(d.cat==='pac') return LEAN_COLOR[d.lean]||'#9ca3af';
