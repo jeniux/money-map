@@ -84,6 +84,7 @@
     <button class="btn filter" data-cat="agriculture"><span class="chip"><span class="dot" style="background:#84cc16"></span>Agriculture</span></button>
     <button class="btn filter" data-cat="people"><span class="chip"><span class="dot" style="background:#ec4899"></span>People</span></button>
     <button class="btn filter" data-cat="pac"><span class="chip"><span class="dot" style="background:#9ca3af"></span>PACs</span></button>
+    <button class="btn filter" data-cat="influencer"><span class="chip"><span class="dot" style="background:#22d3ee"></span>Media/Influencers</span></button>
     <span class="sep"></span>
     <button class="btn" id="harmToggle">⚠ Harm overlay</button>
     <button class="btn" id="leanToggle">⚖ Political lean</button>
@@ -799,6 +800,54 @@ const NODES = [
   {id:'pac_withhonor',label:'With Honor Fund',cat:'pac',lean:'bipartisan',val:null,flag:'reported',parent:'influence',
     desc:'A genuinely cross-partisan super PAC that backs military veterans of both parties — Jeff Bezos gave $10M.',
     src:'https://money.com/jeff-bezos-just-made-a-10-million-political-donation-heres-where-the-worlds-richest-man-is-putting-his-money/',srcName:'Money.com — With Honor'},
+
+  // MEDIA & INFLUENCERS — documented payment cases (heavily flagged)
+  {id:'sec_media',label:'Media & Influencers',cat:'influencer',val:null,flag:'reported',
+    desc:'Documented cases where political money paid social-media creators. A note on this whole layer: once a campaign/PAC pays a marketing agency, the FEC does NOT require disclosure of what individual creators received — so most amounts are agency-level, and per-person figures are sparse and often contested. Plotted only where publicly documented.',
+    src:'https://www.cnn.com/2024/10/29/tech/influencers-presidential-campaign-paid-disclosure/',srcName:'CNN — undisclosed influencer pay'},
+  {id:'tenet',label:'Tenet Media (RT / Russia)',cat:'influencer',val:null,flag:'reported',parent:'sec_media',harm:true,
+    harmNote:'<b>Covert foreign influence.</b> A Sept 2024 DOJ indictment alleges Russian state broadcaster RT secretly funneled ~$10M through Tenet Media to US right-wing commentators. Two RT employees were charged; the founders allegedly knew the source. DOJ frames the commentators themselves as UNWITTING — they were not charged.',
+    desc:'Front company that paid US conservative creators with money DOJ says came secretly from Russia’s RT (~$10M). Founders: Lauren Chen & Liam Donovan.',
+    src:'https://www.cnn.com/2024/09/04/politics/doj-alleges-russia-funded-company-linked-social-media-stars/index.html',srcName:'CNN — DOJ Tenet indictment'},
+  {id:'tim_pool',label:'Tim Pool',cat:'influencer',val:null,flag:'reported',parent:'tenet',
+    desc:'Reported ~$100K per video via Tenet. Says he was an unwitting victim who did not know the money was Russian; not charged. Kept the money.',
+    src:'https://time.com/7018028/conservative-influencers-react-russia-disinformation-indictment-tenet-victims/',srcName:'TIME — influencers respond'},
+  {id:'benny_johnson',label:'Benny Johnson',cat:'influencer',val:null,flag:'estimate',parent:'tenet',
+    desc:'Reported ~$400K/month via Tenet (matches an anonymized high-earner in the indictment). Says he was an unwitting victim; not charged.',
+    src:'https://en.wikipedia.org/wiki/2024_Tenet_Media_investigation',srcName:'Tenet Media investigation'},
+  {id:'dave_rubin',label:'Dave Rubin',cat:'influencer',val:null,flag:'estimate',parent:'tenet',
+    desc:'The indictment’s top contract: ~$400K/month + $100K signing bonus for 4 videos/week. Says he was an unwitting victim; not charged.',
+    src:'https://www.cnn.com/2024/09/07/media/tenet-media-russia-rt-tim-pool-dave-rubin-lauren-chen',srcName:'CNN — Tenet contracts'},
+  {id:'lauren_southern',label:'Lauren Southern',cat:'influencer',val:null,flag:'reported',parent:'tenet',
+    desc:'Canadian commentator and Tenet contributor; says Russia never influenced her content. Not charged.',
+    src:'https://www.cbc.ca/news/investigates/russian-influence-election-tenet-media-chen-southern-1.7314976',srcName:'CBC — Tenet'},
+  {id:'tpusa',label:'Turning Point USA',cat:'influencer',val:null,flag:'reported',parent:'sec_media',
+    desc:'Charlie Kirk’s ~$85M-revenue nonprofit (FY2024) that runs an influencer app and creator network; funded by conservative megadonors (Uihlein, Foglia, Marcus, DonorsTrust). Per-creator pay is not publicly itemized.',
+    src:'https://www.influencewatch.org/non-profit/turning-point-usa/',srcName:'InfluenceWatch — TPUSA'},
+  {id:'prageru',label:'PragerU',cat:'influencer',val:null,flag:'reported',parent:'sec_media',
+    desc:'Conservative content nonprofit (>$65M revenue 2022). Funded by the Wilks brothers (~$8M+), the Marcus and Bradley foundations, and DonorsTrust.',
+    src:'https://en.wikipedia.org/wiki/PragerU',srcName:'PragerU'},
+  {id:'trump_creators',label:'Trump / RNC creator spend',cat:'influencer',val:null,flag:'reported',parent:'sec_media',
+    desc:'Trump campaign + allied PACs paid the firm Urban Legends/Legendary Campaigns >$2.3M for influencer marketing; RNC credentialed ~75 creators in 2024. Downstream per-creator payouts are undisclosed.',
+    src:'https://www.washingtonpost.com/technology/2024/10/26/social-media-influencers-election-money-campaigns/',srcName:'WaPo — campaigns pay influencers'},
+  {id:'courier',label:'Courier Newsroom',cat:'influencer',val:null,flag:'reported',parent:'sec_media',
+    desc:'Democratic-aligned local "news" network (critics call it "pink slime"). Funded with a Reid Hoffman-led seed and ~$15M from a Soros-linked fund; runs partisan content under a news brand. Courier disputes the "pink slime" label.',
+    src:'https://www.axios.com/2021/10/26/soros-hoffman-disinformation-tara-mcgowan',srcName:'Axios — Courier funders'},
+  {id:'harris_creators',label:'Harris campaign creator spend',cat:'influencer',val:null,flag:'reported',parent:'sec_media',
+    desc:'The Harris campaign paid ~$2.5–4M to digital agencies (e.g., Village Marketing) that in turn pay influencers. Individual creator payouts are undisclosed under the same FEC rule. (The "200 creators at the DNC" were credentialed, NOT paid.)',
+    src:'https://reason.com/2024/08/28/campaign-finance-rules-cant-stop-hotties-for-harris/',srcName:'Reason — Village Marketing'},
+  {id:'waytowin',label:'Way to Win',cat:'influencer',val:null,flag:'estimate',parent:'sec_media',
+    desc:'Democratic donor network reported to have spent >$9.1M supporting 550+ pro-Harris creators via agencies Palette and Vocal Media. NB: this specific figure traces largely to one investigative reporter’s account of an internal memo.',
+    src:'https://www.washingtonpost.com/technology/2024/10/26/social-media-influencers-election-money-campaigns/',srcName:'WaPo / Lee Fang'},
+  {id:'priorities',label:'Priorities USA',cat:'influencer',val:null,flag:'reported',parent:'sec_media',
+    desc:'Democratic super PAC; spent ~$1M on influencer content (150 creators) plus a $2.7M Latino-vote digital push with Somos Votantes (15 creators).',
+    src:'https://www.cnn.com/2024/10/29/tech/influencers-presidential-campaign-paid-disclosure/',srcName:'CNN / Politico'},
+  {id:'meidas',label:'MeidasTouch PAC',cat:'influencer',val:null,flag:'reported',parent:'sec_media',
+    desc:'Democratic media/PAC operation. FEC records show small "social media consulting" payments to creators (e.g., ~$6K to Harry Sisson in 2022).',
+    src:'https://dailycaller.com/2023/05/04/dnc-funded-biden-influencer/',srcName:'FEC / Daily Caller'},
+  {id:'sisson',label:'Harry Sisson',cat:'influencer',val:null,flag:'estimate',parent:'sec_media',
+    desc:'Democratic creator. DOCUMENTED: his employer Palette Management got $210K from the DNC (FEC), and he personally received ~$6K from MeidasTouch PAC. He DENIES taking money from the Democratic Party to post, and Axios described him as an unpaid creator — so the direct "paid to post" claim is contested.',
+    src:'https://www.opensecrets.org/campaign-expenditures/vendor?cycle=2024&vendor=Sisson%2C+Harry',srcName:'OpenSecrets / FEC — Sisson'},
 ];
 
 const LINKS = [
@@ -1115,10 +1164,20 @@ const LINKS = [
   {s:'bezos',t:'pac_withhonor',type:'donation',lean:'bipartisan',note:'$10M (cross-partisan veterans)'},
   {s:'bezos',t:'inaugural',type:'donation',lean:'maga',note:'$1M via Amazon (2025)'},
   {s:'zuckerberg',t:'inaugural',type:'donation',lean:'maga',note:'$1M via Meta (2025). NB: 2020 "Zuckerbucks" were nonpartisan election admin'},
+
+  // influencer payments / media funding (colored by lean; see node flags)
+  {s:'tenet',t:'tim_pool',type:'donation',lean:'maga',note:'~$100K/video — says unwitting'},
+  {s:'tenet',t:'benny_johnson',type:'donation',lean:'maga',note:'~$400K/month — says unwitting'},
+  {s:'tenet',t:'dave_rubin',type:'donation',lean:'republican',note:'$400K/mo + $100K bonus — says unwitting'},
+  {s:'tenet',t:'lauren_southern',type:'donation',lean:'republican',note:'Contributor — says unwitting'},
+  {s:'meidas',t:'sisson',type:'donation',lean:'democrat',note:'~$6K consulting (FEC); direct DNC pay denied'},
+  {s:'hoffman',t:'courier',type:'donation',lean:'democrat',note:'Led the seed funding'},
+  {s:'soros',t:'courier',type:'donation',lean:'democrat',note:'~$15M via a Soros-linked fund'},
+  {s:'powelljobs',t:'courier',type:'donation',lean:'democrat',note:'Cited as an early backer'},
 ];
 
 // ---------- ENGINE ----------
-const CAT_COLOR = {source:'#64748b',government:'#2563eb',defense:'#6366f1',health:'#10b981',tech:'#a855f7',finance:'#f59e0b',harm:'#ef4444',energy:'#0ea5e9',agriculture:'#84cc16',realestate:'#fb923c',people:'#ec4899',pac:'#9ca3af'};
+const CAT_COLOR = {source:'#64748b',government:'#2563eb',defense:'#6366f1',health:'#10b981',tech:'#a855f7',finance:'#f59e0b',harm:'#ef4444',energy:'#0ea5e9',agriculture:'#84cc16',realestate:'#fb923c',people:'#ec4899',pac:'#9ca3af',influencer:'#22d3ee'};
 // political lean palette (used for PAC nodes and donation flows)
 const LEAN_COLOR = {maga:'#7f1d1d',republican:'#dc2626',libertarian:'#d97706',bipartisan:'#9ca3af',democrat:'#2563eb',progressive:'#7c3aed',nonpolitical:'#475569',unclear:'#475569',na:'#334155'};
 const LEAN_LABEL = {maga:'MAGA / Trump-aligned',republican:'Republican / Conservative',libertarian:'Libertarian',bipartisan:'Bipartisan / Mixed',democrat:'Democratic',progressive:'Progressive',nonpolitical:'Not a major donor',unclear:'Unclear',na:'Foreign national (no US giving)'};
@@ -1130,7 +1189,9 @@ const LEAN = {
   bloomberg:'democrat',soros:'democrat',hoffman:'democrat',moskovitz:'democrat',schultz:'democrat',powelljobs:'democrat',schmidt:'democrat',cohen:'democrat',buffett:'democrat',gates:'democrat',omidyar:'democrat',altman:'democrat',
   bezos:'bipartisan',dimon:'bipartisan',knight:'bipartisan',cuban:'bipartisan',ackman:'bipartisan',fink:'bipartisan',dellp:'bipartisan',
   zuckerberg:'nonpolitical',huang:'nonpolitical',ballmer:'nonpolitical',mackenzie:'nonpolitical',lisasu:'nonpolitical',abigail:'nonpolitical',dalio:'nonpolitical',dorsey:'nonpolitical',pagebrin:'nonpolitical',marsfamily:'nonpolitical',sacklers:'nonpolitical',
-  arnault:'na',ortega:'na',bettencourt:'na',ferrero:'na',ambani:'na',adani:'na',zhang:'na',ponyma:'na',jackma:'na'
+  arnault:'na',ortega:'na',bettencourt:'na',ferrero:'na',ambani:'na',adani:'na',zhang:'na',ponyma:'na',jackma:'na',
+  tim_pool:'maga',benny_johnson:'maga',dave_rubin:'republican',lauren_southern:'republican',sisson:'democrat',
+  tpusa:'republican',prageru:'republican',trump_creators:'maga',courier:'democrat',harris_creators:'democrat',waytowin:'democrat',priorities:'democrat',meidas:'democrat',tenet:'na'
 };
 function nodeFill(d){
   if(d.cat==='pac') return LEAN_COLOR[d.lean]||'#9ca3af';
